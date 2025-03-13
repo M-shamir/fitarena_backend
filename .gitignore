@@ -1,0 +1,39 @@
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment directory
+venv
+
+# Database files
+db.sqlite3
+
+# Logs
+app_logs.log
+
+# Django migrations
+*/migrations/
+
+# Ignore environment files
+.env
+
+# Ignore the .vscode folder (VS Code settings)
+.vscode/
+
+# Ignore Docker related files
+docker-compose.yml
+Dockerfile
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/project-specific files
+.idea/
+*.swp
+*.swo
+
+# Ignore static and media directories if they are generated
+static/
+media/
