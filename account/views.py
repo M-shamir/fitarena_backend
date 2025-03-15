@@ -31,7 +31,7 @@ class  BaseSignupView(APIView):
             except Exception as e:
                 logger.error(f"Error sending OTP: {str(e)}")
             response = Response({'message': "Account created successfully. OTP sent to your email."}, status=status.HTTP_201_CREATED)
-            response.set_cookie('otp_email', user.email, max_age=600, httponly=True, samesite='Lax')  # No secure=True here
+            response.set_cookie('otp_email', user.email, max_age=600, httponly=True, samesite='Lax') 
 
 
             return response
