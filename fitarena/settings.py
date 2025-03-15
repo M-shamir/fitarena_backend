@@ -119,6 +119,12 @@ CACHES = {
     }
 }
 
+CELERY_BROKER_URL = 'redis://redis_cache:6379/0'  # Redis as the message broker
+CELERY_RESULT_BACKEND = 'redis://redis_cache:6379/0'  # Store task results in Redis
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Adjust as needed

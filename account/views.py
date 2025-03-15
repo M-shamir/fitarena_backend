@@ -7,6 +7,7 @@ from core.utils import generate_jwt_response
 from .serializers import VerifyOtpSerializer
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
+from services.tasks import send_otp_email_task
 import logging
 
 # Create your views here.
@@ -26,7 +27,7 @@ class  BaseSignupView(APIView):
             logger.info(f"Generated OTP: {otp} for {self.user_type} user: {user.email}")
 
             try:
-                send_otp_email(user,otp)
+                send_otp_email_task.delay(user.email, otp)
                 logger.info(f"OTP sent to {user.email}")
             except Exception as e:
                 logger.error(f"Error sending OTP: {str(e)}")
