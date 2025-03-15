@@ -54,13 +54,19 @@ class BaseVerifyOtp(APIView):
     user_role = None
 
     def post(self,request,*args,**kwargs):
-        email = request.data.get('email')  # Get email from the request data
+        email = request.COOKIES.get('otp_email')  
+
+        logger.info(f"Email from cookie: {email}")
         
-        logger.info(f"Email from request: {email}")
+        if not email:
+            return Response({"error": "OTP session expired. Please sign up again."}, status=status.HTTP_400_BAD_REQUEST)
         
-        
-        
-        serializer = VerifyOtpSerializer(data = request.data,context={'request': request})
+
+        data = request.data.copy()
+        data['email'] = email  
+
+      
+        serializer = VerifyOtpSerializer(data=data, context={'request': request})  
         if  not serializer.is_valid():
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         
@@ -79,6 +85,7 @@ class BaseVerifyOtp(APIView):
         response = Response({"message": "OTP verified successfully."}, status=status.HTTP_200_OK)
         response.delete_cookie('otp_email')
         return response
+        
 
 class BaseResendOtp(APIView):
     def post(self, request, *args, **kwargs):
