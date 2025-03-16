@@ -4,7 +4,7 @@ from rest_framework import status
 from services.email_service import send_otp_email
 from services.otp_service import store_otp
 from core.utils import generate_jwt_response
-from .serializers import VerifyOtpSerializer
+from .serializers import VerifyOtpSerializer,ResendOtpSerializer
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from services.tasks import send_otp_email_task
@@ -13,6 +13,7 @@ import logging
 # Create your views here.
 User =  get_user_model()
 logger = logging.getLogger(__name__)
+COOLDOWN_TIME = 30
 
 class  BaseSignupView(APIView):
     serializer_class = None
@@ -81,6 +82,8 @@ class BaseVerifyOtp(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         cache.delete(f'otp:{email}')
+        cache.delete(f'otp_attempts:{email}')
+        cache.delete(f'otp_blocked:{email}')
         logger.info(f"OTP for {email} has been successfully verified and deleted from cache.")
         
         response = Response({"message": "OTP verified successfully."}, status=status.HTTP_200_OK)
@@ -90,29 +93,23 @@ class BaseVerifyOtp(APIView):
 
 class BaseResendOtp(APIView):
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
+        email =  request.COOKIES.get('otp_email')
         if not email:
-            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "OTP session expired. Please sign up again."}, status=status.HTTP_400_BAD_REQUEST)
         
-        otp = cache.get(f'otp:{email}')
-        
-        if otp:
-            
-            return Response({'message': 'OTP is still valid and cannot be resent yet.'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            
-            otp = store_otp(email)
-            logger.info(f"Generated OTP: {otp} for {email}")
+        serializer = ResendOtpSerializer(data={"email":email})
 
-            try:
-                user = User.objects.get(email=email)
-                send_otp_email(user, otp)
-                logger.info(f"OTP sent to {email}")
-            except User.DoesNotExist:
-                logger.error(f"User with email {email} does not exist.")
-                return Response({'error': 'User not found with this email address.'}, status=status.HTTP_404_NOT_FOUND)
-            except Exception as e:
-                logger.error(f"Error sending OTP: {str(e)}")
-                return Response({'error': 'Error sending OTP. Please try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if cache.get(f'otp_blocked:{email}'):
+            return Response({"error": "Your OTP attempts have been blocked. Please try again later."}, status=status.HTTP_400_BAD_REQUEST)
+        otp = store_otp(email)
 
-            return Response({'message': 'OTP has been resent to your email.'}, status=status.HTTP_200_OK)
+        try:
+            send_otp_email_task.delay(email, otp)
+        except Exception as e:
+            return Response({"error": "Error sending OTP. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        cache.set(f'otp_resend_cooldown:{email}', 1, timeout=COOLDOWN_TIME)
+
+        return Response({"message": "OTP has been resent to your email."}, status=status.HTTP_200_OK)

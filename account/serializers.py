@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 User =  get_user_model()
 MAX_ATTEMPTS = 5
 BLOCK_TIME = 300
+RESEND_COOLDOWN = 30
 
 
 class BaseSignUpSerializer(serializers.ModelSerializer):
@@ -67,13 +68,36 @@ class VerifyOtpSerializer(serializers.Serializer):
         
         if cache.get(f'otp_blocked:{email}'):
             raise serializers.ValidationError({"otp": "Your OTP attempts have been blocked. Please try again later."})
+        
         if stored_otp is None:
             raise serializers.ValidationError({"otp":"Expire OTP or Invalid"})
+        
         if stored_otp != otp_entered:
             attempts =  cache.get(f'otp_attempts:{email}',0)+1
+            cache.set(f'otp_attempts:{email}', attempts, timeout=BLOCK_TIME)
+
             if attempts >= MAX_ATTEMPTS:
                 cache.set(f'otp_blocked:{email}',True,timeout=BLOCK_TIME)
                 raise serializers.ValidationError({"otp": "Too many incorrect attempts. You have been temporarily blocked."})
+
             raise serializers.ValidationError({"otp": "Invalid OTP"})
+        cache.delete(f'otp_attempts:{email}')
+        cache.delete(f'otp_blocked:{email}')
+        cache.delete(f'otp:{email}') 
         return data
     
+class ResendOtpSerializer(serializers.Serializer):
+    email =  serializers.EmailField()
+
+    def validate_email(self, value):
+        email = value  # Directly get the value of the email field
+
+        # Check if OTP attempts are blocked for this email
+        if cache.get(f'otp_blocked:{email}'):
+            raise serializers.ValidationError({"otp": "Your OTP attempts have been blocked. Please try again later."})
+        
+        # Check if the resend cooldown period is active for this email
+        if cache.get(f'otp_resend_cooldown:{email}'):
+            raise serializers.ValidationError({"otp": "You must wait before requesting another OTP."})
+        
+        return value
