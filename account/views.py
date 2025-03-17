@@ -7,8 +7,11 @@ from core.utils import generate_jwt_response
 from .serializers import VerifyOtpSerializer,ResendOtpSerializer
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
-from services.tasks import send_otp_email_task
+from services.tasks import send_otp_email_task,send_password_reset_email_task
+from django.contrib.auth.hashers import make_password
+from django.conf import settings
 import logging
+import secrets
 
 # Create your views here.
 User =  get_user_model()
@@ -113,3 +116,54 @@ class BaseResendOtp(APIView):
         cache.set(f'otp_resend_cooldown:{email}', 1, timeout=COOLDOWN_TIME)
 
         return Response({"message": "OTP has been resent to your email."}, status=status.HTTP_200_OK)
+
+
+class BaseForgotPassword(APIView):
+    serializer_class = None
+    user_type = None
+
+    def post(self,request,*args,**kwargs):
+        serializer = self.serializer_class(data = request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        try:
+            user = User.objects.get(email=email, role=self.user_type)
+        except User.DoesNotExist:
+            return Response({"error": "No active account found with this email."}, status=status.HTTP_404_NOT_FOUND)
+
+        token = secrets.token_urlsafe(64)
+
+        cache.set(f"password_reset_token:{token}", user.id, timeout=60 * 60) # one hour
+
+        reset_link =  f"{settings.FRONTEND_URL}/reset-password?token={token}"
+
+        send_password_reset_email_task.delay(email,reset_link)
+
+        return Response({"message": "Password reset email sent successfully."}, status=status.HTTP_200_OK)
+
+class BaseResetPassword(APIView):
+    serializer_class = None
+    user_type = None
+    def post(self,request,*args,**kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+
+        user_id = cache.get(f"password_reset_token:{token}")
+
+        if not user_id:
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user  = User.objects.get(id=user_id,role=self.user_type)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user.password = make_password(new_password)
+        user.save()
+
+        cache.delete(f"password_reset_token:{token}")
+
+        return Response({"message": "Password has been reset successfully."}, status=status.HTTP_200_OK)

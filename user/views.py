@@ -11,9 +11,11 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from core.utils import generate_jwt_response
-from account.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp
-from account.serializers import LoginSerializer
+from account.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword
+from account.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
+from django.conf import settings
 import logging
+
 # Create your views here.
 
 logger = logging.getLogger(__name__)
@@ -53,3 +55,13 @@ class RefreshTokenView(APIView):
         
         except Exception as e:
             return Response({"error": "Invalid or expired refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+
+class UserForgotPasswordView(BaseForgotPassword):
+    serializer_class = ForgotPasswordSerializer
+    user_type = 'user'
+
+class UserResetPasswordView(BaseResetPassword):
+    serializer_class = ResetPasswordSerializer
+    user_type='user'

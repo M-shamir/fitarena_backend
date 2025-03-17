@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
 from dotenv import load_dotenv
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import urlparse
 from datetime import timedelta
@@ -33,6 +34,7 @@ DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = []
 AUTH_USER_MODEL = "account.User"
 
+FRONTEND_URL = "http://localhost:3000"
 
 # Application definition
 
@@ -138,30 +140,45 @@ SIMPLE_JWT = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',  # This will output to stdout
+            'level': 'INFO',  # Change to INFO for fewer logs in the console
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
         'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
+            'level': 'INFO',  # Change to INFO for fewer logs in the file
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'app_logs.log',
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB max size per file
+            'backupCount': 5,  # Keep 5 backup files
+            'formatter': 'simple',
         },
     },
     'loggers': {
         'django': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'INFO',  # Change to INFO for fewer logs from Django
             'propagate': True,
         },
         'myapp': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': True,
+            'level': 'INFO',  # Change to INFO for fewer logs from your app
+            'propagate': False,
         },
     },
 }
+
 
 
 

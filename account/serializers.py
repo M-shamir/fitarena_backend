@@ -101,3 +101,10 @@ class ResendOtpSerializer(serializers.Serializer):
             raise serializers.ValidationError({"otp": "You must wait before requesting another OTP."})
         
         return value
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email =  serializers.EmailField()
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8, write_only=True)
