@@ -46,13 +46,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'storages',
     'account',
     'rest_framework_simplejwt',
     'corsheaders',
     'user',
     'trainer',
-    'stadium_owner'
+    'stadium_owner',
+    'admin_app'
    
 ]
 
@@ -68,6 +70,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
 ]
+
+SITE_ID = 1
+
 CORS_ALLOW_ALL_ORIGINS = False 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
@@ -128,7 +133,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),  # Adjust as needed
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Adjust as needed
     "ROTATE_REFRESH_TOKENS": True,  # Generates a new refresh token with each refresh request
     "BLACKLIST_AFTER_ROTATION": True,  # Blacklist old refresh tokens
@@ -136,6 +141,10 @@ SIMPLE_JWT = {
     "SIGNING_KEY": os.getenv('DJANGO_SECRET_KEY'),  # Ensure SECRET_KEY is defined
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
 
 LOGGING = {
     'version': 1,
