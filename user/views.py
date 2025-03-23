@@ -11,12 +11,12 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from core.utils import generate_jwt_response
-from account.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword
-from account.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword
+from account_app.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
 from django.conf import settings
 import logging
 
-# Create your views here.
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

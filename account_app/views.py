@@ -135,7 +135,7 @@ class BaseForgotPassword(APIView):
 
         cache.set(f"password_reset_token:{token}", user.id, timeout=60 * 60) # one hour
 
-        reset_link =  f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        reset_link =  f"{settings.FRONTEND_URL}/{self.user_type}/reset-password?token={token}"
 
         send_password_reset_email_task.delay(email,reset_link)
 
