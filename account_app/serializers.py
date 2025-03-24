@@ -42,6 +42,7 @@ class BaseSignUpSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     username  = serializers.CharField()
     password = serializers.CharField(write_only=True)
+    
 
     def validate(self, data):
         username = data.get('username')
@@ -51,6 +52,11 @@ class LoginSerializer(serializers.Serializer):
     
         if not user:
             raise serializers.ValidationError("Invalid Email or Password")
+        
+        expected_role =  self.context.get("expected_role")
+
+        if expected_role and user.role != expected_role:
+            raise serializers.ValidationError("Unauthorized access")
     
         data["user"] =  user
 

@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from services.tasks import send_otp_email_task,send_password_reset_email_task
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
+from rest_framework.permissions import AllowAny
 import logging
 import secrets
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 COOLDOWN_TIME = 30
 
 class  BaseSignupView(APIView):
+    permission_classes = [AllowAny]
     serializer_class = None
     user_type =  None
 
@@ -43,11 +45,12 @@ class  BaseSignupView(APIView):
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class BaseLoginView(APIView):
+    permission_classes = [AllowAny]
     serializer_class =None
     user_type = None
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data,context={"expected_role":self.user_type})
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -56,6 +59,7 @@ class BaseLoginView(APIView):
         return generate_jwt_response(user)
 
 class BaseVerifyOtp(APIView):
+    permission_classes = [AllowAny]
     user_role = None
 
     def post(self,request,*args,**kwargs):
@@ -95,6 +99,7 @@ class BaseVerifyOtp(APIView):
         
 
 class BaseResendOtp(APIView):
+    permission_classes = [AllowAny]
     def post(self, request, *args, **kwargs):
         email =  request.COOKIES.get('otp_email')
         if not email:
@@ -119,6 +124,7 @@ class BaseResendOtp(APIView):
 
 
 class BaseForgotPassword(APIView):
+    permission_classes = [AllowAny]
     serializer_class = None
     user_type = None
 
@@ -142,6 +148,7 @@ class BaseForgotPassword(APIView):
         return Response({"message": "Password reset email sent successfully."}, status=status.HTTP_200_OK)
 
 class BaseResetPassword(APIView):
+    permission_classes = [AllowAny]
     serializer_class = None
     user_type = None
     def post(self,request,*args,**kwargs):
