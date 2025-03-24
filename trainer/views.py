@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.response import Response
+from core.permission import IsTrainer
 from rest_framework.views import APIView
 from .serializers import TrainerSerializer
 from services.email_service import send_otp_email
