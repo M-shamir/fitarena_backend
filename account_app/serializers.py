@@ -24,17 +24,20 @@ class BaseSignUpSerializer(serializers.ModelSerializer):
         return value
 
     def validate_password(self,value):
-        if len(value) < 6:
-            raise serializers.ValidationError("Password must be at least 6 characters long.")
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
         return value
 
     def create(self, validated_data):
         validated_data['role'] =  self.role
+        is_approved = 'approved' if self.role == 'user' else 'pending'
+
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            role =  validated_data['role']
+            role =  validated_data['role'],
+            is_approved = is_approved
         )
         return user   
 
