@@ -54,10 +54,10 @@ class TrainerSerializer(BaseSignUpSerializer):
         trainer_profile.languages_spoken.set(Language.objects.filter(id__in=language_ids))
 
         # Handle multiple file uploads for certifications
-        for cert in certifications:
-            trainer_profile.certifications.create(file=cert)
-
+        trainer_profile.certifications = certifications[0] if certifications else None
+        trainer_profile.save()
         return user
+
 
 
 class TrainerTypeSerializer(serializers.ModelSerializer):

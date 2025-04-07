@@ -58,6 +58,10 @@ class LoginSerializer(serializers.Serializer):
         
         expected_role =  self.context.get("expected_role")
 
+        if user.is_approved != "approved":
+            raise serializers.ValidationError("Your account is not approved by the admin yet. Please wait for approval.")
+
+       
         if expected_role and user.role != expected_role:
             raise serializers.ValidationError("Unauthorized access")
     

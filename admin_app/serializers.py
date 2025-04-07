@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
+from trainer.serializers import TrainerProfile
 
 User = get_user_model()
 
@@ -35,3 +36,11 @@ class AdminLoginSerializer(serializers.Serializer):
             "access_token": access,
             "refresh_token": str(refresh),
         }
+
+
+class TrainerListSerializer(serializers.ModelSerializer):
+    trainer_profile = TrainerProfile()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'is_approved', 'trainer_profile']

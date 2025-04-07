@@ -5,14 +5,14 @@ from django.contrib.gis.geos import Point
 
 
 class FacilityType(models.Model):
-    """ Store different facility types """
+    
     name = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
         return self.name
 
 class Amenity(models.Model):
-    """ Store different amenity options """
+    
     name = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
