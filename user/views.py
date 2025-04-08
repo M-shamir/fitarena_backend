@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword,BaseLogoutView
 from account_app.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
 from django.conf import settings
 import logging
@@ -39,6 +39,10 @@ class LoginView(BaseLoginView):
     serializer_class = LoginSerializer
     user_type = 'user'
     
+class UserLogoutView(BaseLogoutView):
+    user_type = 'user'
+    
+
         
 
 

@@ -10,7 +10,7 @@ from django.core.cache import  cache
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseLogoutView
 from account_app.serializers import LoginSerializer
 from .models import TrainerType,Language
 from rest_framework.permissions import AllowAny
@@ -38,7 +38,9 @@ class TrainerResendOtpView(BaseResendOtp):
 class TrainerLoginView(BaseLoginView):
     serializer_class = LoginSerializer
     user_type = 'trainer'
-
+    
+class TrainerLogoutView(BaseLogoutView):
+    user_type =  'trainer'
 
 class TrainerTypeListView(generics.ListAPIView):
     queryset = TrainerType.objects.all()

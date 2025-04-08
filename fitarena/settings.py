@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'storages',
-    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'user',
     'trainer',
@@ -126,13 +126,15 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),  # Adjust as needed
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Adjust as needed
-    "ROTATE_REFRESH_TOKENS": True,  # Generates a new refresh token with each refresh request
-    "BLACKLIST_AFTER_ROTATION": True,  # Blacklist old refresh tokens
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": os.getenv('DJANGO_SECRET_KEY'),  # Ensure SECRET_KEY is defined
+    "SIGNING_KEY": os.getenv('DJANGO_SECRET_KEY'),
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
 REST_FRAMEWORK = {

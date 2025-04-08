@@ -11,6 +11,8 @@ from services.tasks import send_otp_email_task,send_password_reset_email_task
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import datetime, timedelta
 import logging
 import secrets
 
@@ -56,7 +58,71 @@ class BaseLoginView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user = serializer.validated_data["user"]
-        return generate_jwt_response(user)
+        
+        refresh =  RefreshToken.for_user(user)
+        access = refresh.access_token
+
+        access['role'] = self.user_type
+
+        # Set token cookies (HttpOnly)
+        response = Response({
+            "message": "Login successful",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "role": self.user_type,
+            }
+        }, status=status.HTTP_200_OK)
+
+        expires = datetime.utcnow() + timedelta(hours=2)
+
+        response.set_cookie(
+            key="access_token",
+            value=str(access),
+            httponly=True,
+            expires=expires,
+            samesite='Lax',
+            secure=True
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            expires=datetime.utcnow() + timedelta(days=7),
+            samesite='Lax',
+            secure=True
+        )
+
+        return response
+
+
+class BaseLogoutView(APIView):
+    permission_classes = [AllowAny]
+    user_type =  None
+
+
+    def post(self,request):
+        try:
+            refresh_token = request.COOKIES.get('refresh_token')
+            
+            if refresh_token is None:
+                return Response({"error": "No refresh token found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            token = RefreshToken(refresh_token)
+            user_id  =  token["user_id"]
+            user = User.objects.get(id=user_id)
+
+            if user.role != self.user_type:
+                return Response({"error": "Invalid user role"}, status=403)
+
+            token.blacklist()
+            response  =  Response({"message":"Logged Out"})
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class BaseVerifyOtp(APIView):
     permission_classes = [AllowAny]
@@ -174,3 +240,5 @@ class BaseResetPassword(APIView):
         cache.delete(f"password_reset_token:{token}")
 
         return Response({"message": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+
+
