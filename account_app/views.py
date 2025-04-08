@@ -4,7 +4,7 @@ from rest_framework import status
 from services.email_service import send_otp_email
 from services.otp_service import store_otp
 from core.utils import generate_jwt_response
-from .serializers import VerifyOtpSerializer,ResendOtpSerializer
+from .serializers import VerifyOtpSerializer,ResendOtpSerializer,BaseProfileSerializer
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from services.tasks import send_otp_email_task,send_password_reset_email_task
@@ -12,7 +12,9 @@ from django.contrib.auth.hashers import make_password
 from django.conf import settings
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken
 from datetime import datetime, timedelta
+from rest_framework.permissions import IsAuthenticated
 import logging
 import secrets
 
@@ -242,3 +244,65 @@ class BaseResetPassword(APIView):
         return Response({"message": "Password has been reset successfully."}, status=status.HTTP_200_OK)
 
 
+
+class BaseProfileView(APIView):
+    serializer_class = BaseProfileSerializer
+    user_type = None
+    def get(self,request,*args,**kwargs):
+        token = request.COOKIES.get('access_token')
+
+        if not token:
+            return  Response({"error":"Token not found"})
+        
+        
+        try:
+            access_token = AccessToken(token)
+            user_id  = access_token['user_id']
+
+            user = User.objects.get(id=user_id)
+
+            user_role = access_token.get('role',None)
+
+            if user_role != self.user_type:
+                return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
+
+
+            return Response({
+                "message":"Profile Fetched Successfully",
+                "user":{
+                    "id":user.id,
+                    "username":user.username,
+                    "email":user.email,
+                    "role":user_role,
+                    "profile_photo": user.profile_photo.url,
+                }
+            }, status= status.HTTP_200_OK)
+        except Exception as e:
+            
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    def patch(self,request,*args,**kwargs):
+        token = request.COOKIES.get('access_token')
+
+        if not token:
+            return  Response({"error":"Token not found"})
+
+        try:
+            access_token = AccessToken(token)
+            user_id  = access_token['user_id']
+
+            user = User.objects.get(id=user_id)
+            
+            user_role = access_token.get('role',None)
+
+            if user_role != self.user_type:
+                return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer  = self.serializer_class(instance=user,data=request.data,partial=True)
+
+            if not serializer.is_valid():
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return  Response({"message":"Profile Updated Successfully","user":serializer.data},status=status.HTTP_200_OK)
+        except Exception as e:
+            return  Response({"error":str(e)},status = status.HTTP_401_UNAUTHORIZED)

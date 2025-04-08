@@ -10,8 +10,8 @@ from django.core.cache import  cache
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseLogoutView
-from account_app.serializers import LoginSerializer
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseLogoutView,BaseProfileView,BaseForgotPassword,BaseResetPassword
+from account_app.serializers import LoginSerializer,ResetPasswordSerializer,ForgotPasswordSerializer
 from .models import TrainerType,Language
 from rest_framework.permissions import AllowAny
 import logging
@@ -53,3 +53,15 @@ class LanguageListView(generics.ListAPIView):
     queryset = Language.objects.all()
     serializer_class = LanguageSerializer
     permission_classes = [AllowAny]
+
+class TrainerProfileView(BaseProfileView):
+    permission_classes  = [IsTrainer]
+    user_type = 'trainer'
+
+class TrainerForgotPassword(BaseForgotPassword):
+    serializer_class = ForgotPasswordSerializer
+    user_type = 'trainer'
+
+class TrainerResetPasswordView(BaseResetPassword):
+    serializer_class = ResetPasswordSerializer
+    user_type = 'trainer'

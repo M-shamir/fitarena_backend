@@ -11,8 +11,10 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword,BaseLogoutView
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword,BaseLogoutView,BaseProfileView
 from account_app.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
+from rest_framework.permissions import IsAuthenticated
+
 from django.conf import settings
 import logging
 
@@ -43,24 +45,6 @@ class UserLogoutView(BaseLogoutView):
     user_type = 'user'
     
 
-        
-
-
-class RefreshTokenView(APIView):
-    
-    def post(self,request,*args,**kwargs):
-        refresh_token = request.COOKIES.get("refresh_token")
-        if not refresh_token:
-            return Response({"error": "Refresh token is missing"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            refresh=RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
-            return Response({"access": access_token}, status=status.HTTP_200_OK)
-        
-        except Exception as e:
-            return Response({"error": "Invalid or expired refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
-
-
 
 class UserForgotPasswordView(BaseForgotPassword):
     serializer_class = ForgotPasswordSerializer
@@ -69,3 +53,7 @@ class UserForgotPasswordView(BaseForgotPassword):
 class UserResetPasswordView(BaseResetPassword):
     serializer_class = ResetPasswordSerializer
     user_type='user'
+
+class UserProfileView(BaseProfileView):
+    user_type ='user'
+    
