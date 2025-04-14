@@ -119,8 +119,8 @@ CACHES = {
     }
 }
 
-CELERY_BROKER_URL = 'redis://redis_cache:6379/0'  # Redis as the message broker
-CELERY_RESULT_BACKEND = 'redis://redis_cache:6379/0'  # Store task results in Redis
+CELERY_BROKER_URL = 'redis://redis_cache:6379/0'  
+CELERY_RESULT_BACKEND = 'redis://redis_cache:6379/0' 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
@@ -220,11 +220,11 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 STORAGES = {
     'default': {
-        # Backend for storing media files (uploads by users)
+       
         'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
     },
     'staticfiles': {
-        # Backend for storing static files (CSS, JS, images)
+       
         'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
     },
 }

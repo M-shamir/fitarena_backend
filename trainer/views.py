@@ -65,3 +65,5 @@ class TrainerForgotPassword(BaseForgotPassword):
 class TrainerResetPasswordView(BaseResetPassword):
     serializer_class = ResetPasswordSerializer
     user_type = 'trainer'
+
+
