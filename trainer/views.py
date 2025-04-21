@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.permission import IsTrainer
 from rest_framework.views import APIView
@@ -72,26 +73,8 @@ class TrainerResetPasswordView(BaseResetPassword):
 
 
 class TrainerCreateCourceView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsTrainer]
     def post(self,request,*args,**kwargs):
-        token = request.COOKIES.get('access_token')
-
-        if not token:
-            return Response({"error": "Token not found"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']
-            user_role = access_token.get('role', None)
-
-            # Check if the user has the "trainer" role
-            if user_role != "trainer":
-                return Response({"error": "You are not authorized to create courses."}, status=status.HTTP_403_FORBIDDEN)
-
-            user = User.objects.get(id=user_id)  
-            if not hasattr(user, 'trainer_profile'):
-                return Response({"error": "Trainer profile not found."}, status=status.HTTP_400_BAD_REQUEST)
 
             trainer = user.trainer_profile
             # Extract data from request
@@ -109,11 +92,6 @@ class TrainerCreateCourceView(APIView):
             return Response(
                 {"message": "Course created successfully!", "course": course_serializer.data},
                 status=status.HTTP_201_CREATED
-            )
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
             )
 
 class PendingApprovalSessionsView(ListAPIView):
@@ -152,66 +130,44 @@ class PendingApprovalSessionsView(ListAPIView):
 
 
 class TrainerTypesView(APIView):
-    permission_classes = [AllowAny]
-    
-
+    permission_classes = [IsAuthenticated, IsTrainer] 
     def get(self, request):
-        
-        token = request.COOKIES.get('access_token')
-
-        if not token:
-            return Response({"error": "Token not found"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']
-            user_role = access_token.get('role', None)
+            user = request.user
+            # Access trainer profile for the user
+            trainer_profile = user.trainer_profile
 
-           
-            if user_role != "trainer":
-                return Response({"error": "You are not authorized to view trainer types."}, status=status.HTTP_403_FORBIDDEN)
-
-  
-            user = User.objects.get(id=user_id)
-            trainer_profile = user.trainer_profile  
-
-          
+            # Fetch the trainer types associated with the trainer profile
             trainer_types = trainer_profile.trainer_type.all()
-            serializer = TrainerTypeSerializer(trainer_types, many=True)
 
-           
+            # Serialize the data and return the response
+            serializer = TrainerTypeSerializer(trainer_types, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except AccessToken.Expired:
-            return Response({"error": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)
-        except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         except TrainerProfile.DoesNotExist:
             return Response({"error": "Trainer profile not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
 class ApprovedSessionsView(ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsTrainer] 
     serializer_class = TrainerCourceSerializer
 
     def get_queryset(self):
-        token = self.request.COOKIES.get('access_token')
+        
 
-        if not token:
-            raise AuthenticationFailed('No token found in cookies.')
+        user = self.request.user
 
         try:
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']
-            user = User.objects.get(id=user_id)
+            
             trainer_profile = TrainerProfile.objects.get(user=user)
+        except TrainerProfile.DoesNotExist:
+            raise AuthenticationFailed('Trainer profile not found.')
 
-        except User.DoesNotExist:
-            raise AuthenticationFailed('User not found.')
-
+        # Filter the approved sessions for this trainer
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
             status='approved',
@@ -220,23 +176,18 @@ class ApprovedSessionsView(ListAPIView):
 
 
 class ApprovedSessionsView(ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsTrainer] 
     serializer_class = TrainerCourceSerializer
 
     def get_queryset(self):
-        token = self.request.COOKIES.get('access_token')
+        user = self.request.user
 
-        if not token:
-            raise AuthenticationFailed('No token found in cookies.')
+        
 
         try:
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']
-            user = User.objects.get(id=user_id)
             trainer_profile = TrainerProfile.objects.get(user=user)
-
-        except User.DoesNotExist:
-            raise AuthenticationFailed('User not found.')
+        except TrainerProfile.DoesNotExist:
+            raise AuthenticationFailed('Trainer profile not found.')
 
       
         return TrainerCource.objects.filter(

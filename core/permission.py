@@ -1,13 +1,6 @@
-from rest_framework import permissions
+from rest_framework.permissions import BasePermission
 
-
-
-class IsTrainer(permissions.BasePermission):
-    """Allow only trainers to access."""
+class IsTrainer(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'trainer'
-
-class IsStadiumOwner(permissions.BasePermission):
-    """Allow only stadium owners to access."""
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'stadium_owner'
+        user = request.user
+        return user and user.is_authenticated and getattr(user, 'role', None) == 'trainer'
