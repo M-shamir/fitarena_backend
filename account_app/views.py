@@ -84,7 +84,8 @@ class BaseLoginView(APIView):
             httponly=True,
             expires=expires,
             samesite='Lax',
-            secure=True
+            secure=False 
+         
         )
         response.set_cookie(
             key="refresh_token",
@@ -92,8 +93,10 @@ class BaseLoginView(APIView):
             httponly=True,
             expires=datetime.utcnow() + timedelta(days=7),
             samesite='Lax',
-            secure=True
+            secure=False 
+            
         )
+        
 
         return response
 

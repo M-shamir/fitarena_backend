@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import TrainerSignUpView,TrainerVerifyOtpView,TrainerResendOtpView,TrainerLoginView,TrainerTypeListView,LanguageListView,TrainerLogoutView,TrainerProfileView,TrainerForgotPassword,TrainerResetPasswordView
+from .views import TrainerSignUpView,TrainerVerifyOtpView,TrainerResendOtpView,TrainerLoginView,TrainerTypeListView,LanguageListView,TrainerLogoutView,TrainerProfileView,TrainerForgotPassword,TrainerResetPasswordView,TrainerCreateCourceView,PendingApprovalSessionsView,TrainerTypesView,ApprovedSessionsView
 urlpatterns =  [
     path('auth/signup',TrainerSignUpView.as_view(),name='signup'),
     path('auth/verifyotp',TrainerVerifyOtpView.as_view(),name='verifyotp'),
@@ -10,6 +10,10 @@ urlpatterns =  [
     path("types/", TrainerTypeListView.as_view(), name="trainer-types"),
     path("languages/", LanguageListView.as_view(), name="trainer-languages"),
     path("profile/", TrainerProfileView.as_view(), name="trainer-profile"),
+    path("create-course/", TrainerCreateCourceView.as_view(), name="create-trainer-course"),
+    path('pending-approvals/', PendingApprovalSessionsView.as_view(), name='pending-approvals'), 
+    path('trainer-types/', TrainerTypesView.as_view(), name='trainer-types'),
+    path('approved-sessions/', ApprovedSessionsView.as_view(), name='approved-sessions'),
     path('logout/',TrainerLogoutView.as_view()),
 
     

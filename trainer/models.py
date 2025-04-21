@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import datetime, timedelta
 from django.conf import settings
 # Create your models here.
 class TrainerProfile(models.Model):
@@ -14,13 +15,64 @@ class TrainerProfile(models.Model):
         return f"Trainer: {self.user.username}"
 
 class TrainerType(models.Model):
-    name = models.CharField(max_length=50, unique=True)  # Example: Yoga, Gym, etc.
+    name = models.CharField(max_length=50, unique=True)  
 
     def __str__(self):
         return self.name
 
 class Language(models.Model):
-    name = models.CharField(max_length=50, unique=True)  # Example: English, Hindi, etc.
+    name = models.CharField(max_length=50, unique=True)  
 
     def __str__(self):
         return self.name
+
+
+class TrainerCource(models.Model):
+    STATUS_CHOICES = [
+    ('draft', 'Draft'),
+    ('pending', 'Pending Approval'),
+    ('published', 'Published'),
+    ('completed', 'Completed'),
+    ('cancelled', 'Cancelled'),
+
+    ]
+
+    trainer = models.ForeignKey("TrainerProfile", on_delete=models.CASCADE, related_name="courses")
+    title =  models.CharField(max_length=100)
+    trainer_type = models.ForeignKey("TrainerType", on_delete=models.CASCADE)
+    description = models.TextField(blank=True, null=True)
+
+    thumbnail = models.ImageField(upload_to='course_thumbnails/', blank=True, null=True)
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    start_time = models.TimeField()
+    end_time = models.TimeField() 
+
+    days_of_week = models.JSONField(help_text="List of days like ['Mon', 'Wed', 'Fri']")
+    max_participants = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    cancellation_reason = models.TextField(blank=True, null=True)
+
+    is_approved = models.BooleanField(default=False)
+    approval_note = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} by {self.trainer.user.username}"
+
+
+    @property
+    def duration_minutes(self):
+        dt_start = datetime.combine(timezone.now().date(), self.start_time)
+        dt_end = datetime.combine(timezone.now().date(), self.end_time)
+
+ 
+        if dt_end < dt_start:
+            dt_end += timedelta(days=1)
+
+        return int((dt_end - dt_start).total_seconds() / 60)

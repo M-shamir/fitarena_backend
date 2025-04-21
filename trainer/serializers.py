@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.contrib.auth import authenticate 
 from account_app.serializers import BaseSignUpSerializer,LoginSerializer
-from .models import Language,TrainerType,TrainerProfile
+from .models import Language,TrainerType,TrainerProfile,TrainerCource
 
 User =  get_user_model()
 
@@ -70,3 +70,18 @@ class LanguageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Language
         fields = ["id", "name"]
+
+    
+class TrainerCourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainerCource
+        fields = ['id', 'trainer', 'title', 'trainer_type', 'description', 'thumbnail', 
+                  'start_date', 'end_date', 'start_time', 'end_time', 'days_of_week', 
+                  'max_participants', 'price', 'status', 'created_at', 'updated_at']
+
+        read_only_fields = ['cancellation_reason', 'is_approved', 'approval_note']
+    def validate(self, data):
+        
+        if data['start_time'] >= data['end_time']:
+            raise serializers.ValidationError("End time must be after the start time.")
+        return data
