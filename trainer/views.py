@@ -166,8 +166,7 @@ class ApprovedSessionsView(ListAPIView):
             trainer_profile = TrainerProfile.objects.get(user=user)
         except TrainerProfile.DoesNotExist:
             raise AuthenticationFailed('Trainer profile not found.')
-
-        # Filter the approved sessions for this trainer
+        
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
             status='approved',
