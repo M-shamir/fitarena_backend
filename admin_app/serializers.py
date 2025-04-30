@@ -5,6 +5,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework.exceptions import AuthenticationFailed
 from trainer.serializers import TrainerProfile
+from stadium_owner.models import StadiumOwnerProfile
+from trainer.models import TrainerCource,TrainerProfile,TrainerType
 
 User = get_user_model()
 
@@ -40,3 +42,27 @@ class TrainerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'is_approved', 'trainer_profile']
+
+
+class StadiumListSerializer(serializers.ModelSerializer):
+    stadiumowner_profile = StadiumOwnerProfile()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'is_approved', 'stadiumowner_profile']
+
+
+    
+class TrainerCourceSerializer(serializers.ModelSerializer):
+    trainer_name = serializers.CharField(source='trainer.user.username', read_only=True)
+    duration_minutes = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = TrainerCource
+        fields = [
+            'id', 'title', 'trainer_name', 'trainer_type', 'description', 'thumbnail',
+            'start_date', 'end_date', 'start_time', 'end_time', 'days_of_week',
+            'max_participants', 'price', 'status', 'cancellation_reason',
+            'is_approved', 'approval_note', 'is_deleted', 'created_at', 'updated_at',
+            'duration_minutes'
+        ]

@@ -8,6 +8,11 @@ from .views import (
     RejectTrainerView,
     ApprovedTrainerListView,
     ListUnlistTrainerView,
+    PendingStadiumOwnerApprovalView,
+    ApprovedStadiumOwnerListView,
+    ApprovedStadiumOwnerView,
+    RejectStadiumOwnerView,
+    ListUnlistStadiumOwnerView
 )
 
 urlpatterns = [
@@ -19,7 +24,11 @@ urlpatterns = [
     path("trainers/<int:trainer_id>/reject/", RejectTrainerView.as_view(), name="reject-trainer"),
     path('trainers/approved/', ApprovedTrainerListView.as_view(), name='approved-trainers'),
     path("trainers/<int:trainer_id>/list-unlist/", ListUnlistTrainerView.as_view()),
-    
+    path('stadium_owner/pending/',PendingStadiumOwnerApprovalView.as_view(),name="pending-stadium_owner"),
+    path('stadium_owner/approved/',ApprovedStadiumOwnerListView.as_view(),name="approved-stadium_owner"),
+    path("stadium_owner/<int:stadium_owner_id>/approve/", ApprovedStadiumOwnerView.as_view(), name="approve-stadium_owner"),
+    path("stadium_owner/<int:stadium_owner_id>/reject/", RejectStadiumOwnerView.as_view(), name="reject-stadium_owner"),
+    path("stadium_owner/<int:stadium_owner_id>/list-unlist/", ListUnlistStadiumOwnerView.as_view()),
 
 
 ]

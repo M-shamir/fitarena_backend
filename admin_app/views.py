@@ -12,9 +12,10 @@ from trainer.serializers import TrainerSerializer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
-from .serializers import TrainerListSerializer
+from .serializers import TrainerListSerializer,StadiumListSerializer,TrainerCourceSerializer
 from core.permission import IsAdmin
-from trainer.models import TrainerProfile
+from trainer.models import TrainerProfile,TrainerCource
+from stadium_owner.models import StadiumOwnerProfile
 # Create your views here.
 
 User = get_user_model()
@@ -158,7 +159,7 @@ class ApprovedTrainerListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
-        # Only staff/admin can access this list
+        
         if not request.user.is_staff:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -181,3 +182,78 @@ class ListUnlistTrainerView(APIView):
         status_text = "listed" if trainer.listed else "unlisted"
         return Response({"message": f"Trainer {trainer.user.username} has been {status_text}."},
                         status=status.HTTP_200_OK)
+
+class TrainerPendingCourceListView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+    def get(self,request,*args,**kwargs):
+        try:
+
+            pending_cource = TrainerCource.objects.filter(status='pending',is_deleted=False)
+            serializer = TrainerCourceSerializer(pending_cource,many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PendingStadiumOwnerApprovalView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+    def get(self,request,*args,**kwargs):
+        if not request.user.is_staff:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        pending_stadium_owners = User.objects.filter(role='stadium_owner',is_approved='pending')
+        serializer = StadiumListSerializer(pending_stadium_owners,many=True)
+        return Response({"pending_stadium_owners":serializer.data},status=status.HTTP_200_OK)
+
+class ApprovedStadiumOwnerListView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+
+    def get(self,request,*args,**kwargs):
+        if not request.user.is_staff:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+        approved_stadium_owners =  User.objects.filter(role='stadium_owner',is_approved='approved')
+        serializer = StadiumListSerializer(approved_stadium_owners,many=True)
+        return   Response({"approved_stadium_owners":serializer.data},status=status.HTTP_200_OK)
+
+
+
+
+class ApprovedStadiumOwnerView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+    def post(self,request,stadium_owner_id):
+        if not request.user.is_staff:
+            return Response({"error":"Unauthorized"},status=status.HTTP_403_FORBIDDEN)
+        try:
+            stadium_owner = User.objects.get(id=stadium_owner_id,role='stadium_owner',is_approved='pending')
+        except User.DoesNotExist:
+            return Response({"error":"User not Found"},status=status.HTTP_404_NOT_FOUND)
+        stadium_owner.is_approved = "approved"
+        stadium_owner.save()
+        return Response({"message":"Approved Succesfully"},status=status.HTTP_200_OK)
+
+class RejectStadiumOwnerView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+
+    def post(self,request,stadium_owner_id):
+        if not request.user.is_staff:
+            return  Response({"error":"Unauthorized"},status=Status.HTTP_403_FORBIDDEN)
+        try:
+            stadium_owner = User.objects.get(id=stadium_owner_id,role='stadium_owner',is_approved='pending')
+        except User.DoesNotExist:
+            return   Response({"error":"User Not Found"},status=status.HTTP_404_NOT_FOUND)
+        stadium_owner.is_approved ='rejected'
+        stadium_owner.save()
+        return  Response({"message":"Rejected"},status=status.HTTP_200_OK)
+    
+class ListUnlistStadiumOwnerView(APIView):
+    permission_classes = [IsAuthenticated,IsAdmin]
+    
+    def post(self,request,stadium_owner_id,*args,**kwargs):
+        try:
+            stadium_owner = StadiumOwnerProfile.objects.get(user_id=stadium_owner_id)
+        except StadiumOwnerProfile.DoesNotExist:
+            return Response({"message":"User not found"},status=status.HTTP_404_NOT_FOUND)
+        stadium_owner.listed = not stadium_owner.listed
+        stadium_owner.save()
+        status_text = "listed" if stadium_owner.listed else "unlisted"
+        return Response({"message":status_text},status=status.HTTP_200_OK)

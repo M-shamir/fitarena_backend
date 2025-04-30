@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import StadiumOnwerSignUpSerializer
+from .serializers import StadiumOwnerSignUpSerializer
 from services.email_service import send_otp_email
 from services.otp_service import generate_otp,store_otp
 from django.core.cache import  cache
@@ -19,7 +19,7 @@ User = get_user_model()
 
 
 class StadiumOwnerSignUpView(BaseSignupView):
-    serializer_class = StadiumOnwerSignUpSerializer
+    serializer_class = StadiumOwnerSignUpSerializer
     user_type = 'stadium_owner'
 
 class StadiumOwnerVerifyOtpView(BaseVerifyOtp):
@@ -35,5 +35,5 @@ class StadiumOwnerLoginView(BaseLoginView):
 
 class StadiumOwnerProfile(BaseProfileView):
     
-    user_type = 'stadium_onwer'
+    user_type = 'stadium_owner'
     

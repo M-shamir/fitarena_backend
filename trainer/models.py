@@ -30,13 +30,13 @@ class Language(models.Model):
 
 class TrainerCource(models.Model):
     STATUS_CHOICES = [
-    ('draft', 'Draft'),
-    ('pending', 'Pending Approval'),
+    ('pending', 'Pending'),
+    ('approval', 'Approval'),
     ('published', 'Published'),
     ('completed', 'Completed'),
     ('cancelled', 'Cancelled'),
+]
 
-    ]
 
     trainer = models.ForeignKey("TrainerProfile", on_delete=models.CASCADE, related_name="courses")
     title =  models.CharField(max_length=100)
@@ -55,7 +55,7 @@ class TrainerCource(models.Model):
     max_participants = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=8, decimal_places=2)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     cancellation_reason = models.TextField(blank=True, null=True)
 
     is_approved = models.BooleanField(default=False)
