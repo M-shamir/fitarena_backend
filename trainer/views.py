@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.permission import IsTrainer
 from rest_framework.views import APIView
-from .serializers import TrainerSerializer,TrainerTypeSerializer,LanguageSerializer,TrainerCourceSerializer
+from .serializers import TrainerSerializer,TrainerTypeSerializer,LanguageSerializer,TrainerCourceSerializer,TrainerProfileSerializer
 from services.email_service import send_otp_email
 from services.otp_service import generate_otp,store_otp
 from django.core.cache import  cache
@@ -18,6 +18,7 @@ from .models import TrainerType,Language,TrainerProfile,TrainerCource
 from rest_framework.permissions import AllowAny
 from .services.course_service import TrainerCourseService
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.generics import DestroyAPIView
 
 import logging
 
@@ -61,7 +62,48 @@ class LanguageListView(generics.ListAPIView):
 
 class TrainerProfileView(BaseProfileView):
     permission_classes  = [IsTrainer]
+    serializer_class = TrainerProfileSerializer
     user_type = 'trainer'
+
+    def get(self, request, *args, **kwargs):
+        try:
+            user = request.user
+            user_role = request.auth.get('role', None)
+
+            if user_role != self.user_type:
+                return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
+
+            trainer_profile = user.trainer_profile  # This will fetch the TrainerProfile
+            serializer = self.serializer_class(trainer_profile)
+
+            return Response({
+                "message": "Trainer Profile Fetched Successfully",
+                "profile": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except TrainerProfile.DoesNotExist:
+            return Response({"error": "Trainer profile not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+
+        try:
+            user_role = request.auth.get('role', None)
+            if user_role != self.user_type:
+                return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
+            
+            trainer_profile = user.trainer_profile
+            serializer = self.serializer_class(trainer_profile, data=request.data, partial=True)
+
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            serializer.save()
+            return Response({"message": "Profile Updated Successfully", "profile": serializer.data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 class TrainerForgotPassword(BaseForgotPassword):
     serializer_class = ForgotPasswordSerializer
@@ -75,9 +117,10 @@ class TrainerResetPasswordView(BaseResetPassword):
 class TrainerCreateCourceView(APIView):
     permission_classes = [IsAuthenticated, IsTrainer]
     def post(self,request,*args,**kwargs):
+            user = request.user
 
             trainer = user.trainer_profile
-            # Extract data from request
+            
             base_info = request.data.get('base_info')
             course_variant = request.data.get('course_variant')
 
@@ -93,39 +136,31 @@ class TrainerCreateCourceView(APIView):
                 {"message": "Course created successfully!", "course": course_serializer.data},
                 status=status.HTTP_201_CREATED
             )
+    
 
 class PendingApprovalSessionsView(ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsTrainer] 
     serializer_class = TrainerCourceSerializer
 
     def get_queryset(self):
-        # Get the token from cookies
-        token = self.request.COOKIES.get('access_token')
-
-        if not token:
-            raise AuthenticationFailed('No token found in cookies.')
+        
+        user = self.request.user 
 
         try:
-            # Decode the token
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']  # Extract user ID from the token
-
-            # Fetch the user object
-            user = User.objects.get(id=user_id)
-            
-            # Assuming the user has a TrainerProfile
+         
             trainer_profile = TrainerProfile.objects.get(user=user)
 
-        except User.DoesNotExist:
-            raise AuthenticationFailed('User not found.')
+        except TrainerProfile.DoesNotExist:
+            raise AuthenticationFailed('Trainer profile not found.')
         
         
 
-        # Return the queryset based on the trainer's profile
+        
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
             status='pending',
-            is_approved=False
+            is_approved=False,
+            is_deleted=False
         )
 
 
@@ -135,13 +170,13 @@ class TrainerTypesView(APIView):
         try:
             
             user = request.user
-            # Access trainer profile for the user
+            
             trainer_profile = user.trainer_profile
 
-            # Fetch the trainer types associated with the trainer profile
+            
             trainer_types = trainer_profile.trainer_type.all()
 
-            # Serialize the data and return the response
+            
             serializer = TrainerTypeSerializer(trainer_types, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -193,3 +228,42 @@ class ApprovedSessionsView(ListAPIView):
             trainer=trainer_profile,
             is_approved=True
         )
+
+class DeleteTrainerCourceView(DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsTrainer] 
+    queryset = TrainerCource.objects.all()
+    lookup_field = 'pk'
+
+    def delete(self,request,*args,**kwargs):
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save()
+        return Response({"detail": "Course deleted."}, status=204)
+
+
+class TrainerPendingEditView(APIView):
+    permission_classes = [IsAuthenticated, IsTrainer]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        pk = kwargs.get('pk')
+
+        try:
+            trainer_profile = TrainerProfile.objects.get(user=user)
+        except TrainerProfile.DoesNotExist:
+            raise PermissionDenied("Trainer profile not found.")
+
+        try:
+            cource = TrainerCource.objects.get(pk=pk, trainer=trainer_profile)
+        except TrainerCource.DoesNotExist:
+            raise NotFound("Course not found.")
+
+        if cource.status != 'pending' or cource.is_approved:
+            return Response({'detail': 'Course is not in pending approval state.'}, status=400)
+
+        serializer = TrainerCourceSerializer(cource, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)

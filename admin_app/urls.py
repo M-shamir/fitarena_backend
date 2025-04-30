@@ -1,5 +1,14 @@
 from django.urls import path
-from .views import AdminLoginView,UserListView,BlockUnblockUserView,TrainerPendingAprrovalView,ApproveTrainerView,RejectTrainerView,ApprovedTrainerListView
+from .views import (
+    AdminLoginView,
+    UserListView,
+    BlockUnblockUserView,
+    TrainerPendingAprrovalView,
+    ApproveTrainerView,
+    RejectTrainerView,
+    ApprovedTrainerListView,
+    ListUnlistTrainerView,
+)
 
 urlpatterns = [
     path("login/", AdminLoginView.as_view(), name="admin-login"),
@@ -9,6 +18,7 @@ urlpatterns = [
     path("trainers/<int:trainer_id>/approve/", ApproveTrainerView.as_view(), name="approve-trainer"),
     path("trainers/<int:trainer_id>/reject/", RejectTrainerView.as_view(), name="reject-trainer"),
     path('trainers/approved/', ApprovedTrainerListView.as_view(), name='approved-trainers'),
+    path("trainers/<int:trainer_id>/list-unlist/", ListUnlistTrainerView.as_view()),
     
 
 

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.contrib.auth import authenticate 
-from account_app.serializers import BaseSignUpSerializer,LoginSerializer
+from account_app.serializers import BaseSignUpSerializer,LoginSerializer,BaseProfileSerializer
 from .models import Language,TrainerType,TrainerProfile,TrainerCource
 
 User =  get_user_model()
@@ -47,7 +47,8 @@ class TrainerSerializer(BaseSignUpSerializer):
             user=user,
             phone_number=phone_number,
             gender=gender,
-            training_photo=training_photo
+            training_photo=training_photo,
+            
         )
 
         trainer_profile.trainer_type.set(TrainerType.objects.filter(id__in=trainer_type_ids))
@@ -85,3 +86,62 @@ class TrainerCourceSerializer(serializers.ModelSerializer):
         if data['start_time'] >= data['end_time']:
             raise serializers.ValidationError("End time must be after the start time.")
         return data
+
+class TrainerProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    profile_photo = serializers.ImageField(source='user.profile_photo', required=False)
+
+    # For POST/PATCH/PUT: Accept IDs
+    trainer_type = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=TrainerType.objects.all(),
+        write_only=True
+    )
+    languages_spoken = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Language.objects.all(),
+        write_only=True
+    )
+
+    # For GET: Return names
+    trainer_type_names = serializers.SerializerMethodField(read_only=True)
+    languages_spoken_names = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = TrainerProfile
+        fields = [
+            'username', 'email', 'profile_photo',
+            'phone_number', 'gender',
+            'trainer_type',        # for input (IDs)
+            'trainer_type_names',  # for output (Names)
+            'certifications',
+            'languages_spoken',    # for input (IDs)
+            'languages_spoken_names',  # for output (Names)
+            'training_photo'
+        ]
+        read_only_fields = ['gender']
+
+    def get_trainer_type_names(self, obj):
+        return [trainer.name for trainer in obj.trainer_type.all()]
+
+    def get_languages_spoken_names(self, obj):
+        return [language.name for language in obj.languages_spoken.all()]
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+
+        if user_data:
+            user = instance.user
+            user.profile_photo = user_data.get('profile_photo', user.profile_photo)
+            user.save()
+
+        if 'trainer_type' in validated_data:
+            trainer_types = validated_data.pop('trainer_type')
+            instance.trainer_type.set(trainer_types)
+
+        if 'languages_spoken' in validated_data:
+            languages = validated_data.pop('languages_spoken')
+            instance.languages_spoken.set(languages)
+
+        return super().update(instance, validated_data)

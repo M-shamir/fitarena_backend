@@ -4,47 +4,80 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import AdminLoginSerializer
 from trainer.serializers import TrainerSerializer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from datetime import datetime, timedelta
 from .serializers import TrainerListSerializer
+from core.permission import IsAdmin
+from trainer.models import TrainerProfile
 # Create your views here.
 
 User = get_user_model()
 class AdminLoginView(APIView):
     permission_classes = [AllowAny]
-    def post(self, request, *args, **kwargs):
-        
-        serializer = AdminLoginSerializer(data=request.data)
 
-        if serializer.is_valid():
-            data = serializer.validated_data
-            response = Response({
-                "user": data["user"],
-                "access_token": data["access_token"],
-            }, status=status.HTTP_200_OK)
-            response.set_cookie(
-                key="refresh_token",
-                value=data["refresh_token"],
-                httponly=True,
-                secure=True,  
-                samesite="Lax",
-            )
-            return response
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        serializer = AdminLoginSerializer(data=request.data, context={"expected_role": "admin"})
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = serializer.validated_data["user"]
+
+        if not user.is_staff:
+            return Response({"error": "Unauthorized: not an admin user"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
+        access['role'] = "admin"  # Custom claim for client side
+
+        expires = datetime.utcnow() + timedelta(hours=2)
+
+        # Prepare response
+        response = Response({
+            "message": "Admin login successful",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "role": "admin",
+            }
+        }, status=status.HTTP_200_OK)
+
+        
+        response.set_cookie(
+            key="access_token",
+            value=str(access),
+            httponly=True,
+            expires=expires,
+            samesite='Lax',
+            secure=False 
+         
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            expires=datetime.utcnow() + timedelta(days=7),
+            samesite='Lax',
+            secure=False 
+            
+        )
+
+        return response
+
 
 class UserListView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request, *args, **kwargs):
-        if not request.user.is_staff:
-            return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
         
-
+        
         users = User.objects.exclude(
             is_superuser=True
         ).exclude(
@@ -56,8 +89,7 @@ class UserListView(APIView):
         return Response({"users": list(users)}, status=status.HTTP_200_OK)  
 
 class   BlockUnblockUserView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def patch(self, request, user_id, *args, **kwargs):
         try:
@@ -74,8 +106,7 @@ class   BlockUnblockUserView(APIView):
         return Response({"message": f"User {user.username} has been {status_text}."}, status=status.HTTP_200_OK)
 
 class TrainerPendingAprrovalView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request, *args, **kwargs):
         if not request.user.is_staff:
@@ -90,8 +121,7 @@ class TrainerPendingAprrovalView(APIView):
 
 
 class ApproveTrainerView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, trainer_id):
         if not request.user.is_staff:
@@ -108,8 +138,7 @@ class ApproveTrainerView(APIView):
         return Response({"message": "Trainer approved successfully."}, status=status.HTTP_200_OK)
 
 class RejectTrainerView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, trainer_id):
         if not request.user.is_staff:
@@ -126,8 +155,7 @@ class RejectTrainerView(APIView):
         return Response({"message": "Trainer rejected successfully."}, status=status.HTTP_200_OK)
     
 class ApprovedTrainerListView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
         # Only staff/admin can access this list
@@ -140,3 +168,16 @@ class ApprovedTrainerListView(APIView):
         return Response({"approved_trainers": serializer.data}, status=status.HTTP_200_OK)
 
 
+class ListUnlistTrainerView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def patch(self, request, trainer_id, *args, **kwargs):
+        try:
+            trainer = TrainerProfile.objects.get(id=trainer_id)
+        except TrainerProfile.DoesNotExist:
+            raise NotFound({"error": "Trainer not found"})
+        trainer.listed = not trainer.listed
+        trainer.save()
+        status_text = "listed" if trainer.listed else "unlisted"
+        return Response({"message": f"Trainer {trainer.user.username} has been {status_text}."},
+                        status=status.HTTP_200_OK)

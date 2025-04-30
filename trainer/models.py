@@ -10,6 +10,7 @@ class TrainerProfile(models.Model):
     certifications = models.FileField(upload_to="certifications/", blank=True, null=True)  
     languages_spoken = models.ManyToManyField("Language", related_name="trainers") 
     training_photo = models.ImageField(upload_to="training_photos/", blank=True, null=True)
+    listed = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Trainer: {self.user.username}"
@@ -59,6 +60,7 @@ class TrainerCource(models.Model):
 
     is_approved = models.BooleanField(default=False)
     approval_note = models.TextField(blank=True, null=True)
+    is_deleted =  models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

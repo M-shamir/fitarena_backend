@@ -249,59 +249,46 @@ class BaseResetPassword(APIView):
 
 
 class BaseProfileView(APIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = BaseProfileSerializer
     user_type = None
     def get(self,request,*args,**kwargs):
-        token = request.COOKIES.get('access_token')
-
-        if not token:
-            return  Response({"error":"Token not found"})
+        user=request.user
         
         
         try:
-            access_token = AccessToken(token)
-            user_id  = access_token['user_id']
-
-            user = User.objects.get(id=user_id)
-
-            user_role = access_token.get('role',None)
+            user_role = request.auth.get('role', None)
+            
 
             if user_role != self.user_type:
                 return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
+            
+            serializer = self.serializer_class(user)
 
 
             return Response({
                 "message":"Profile Fetched Successfully",
-                "user":{
-                    "id":user.id,
-                    "username":user.username,
-                    "email":user.email,
-                    "role":user_role,
-                    "profile_photo": user.profile_photo.url,
-                }
+                "profile": serializer.data
             }, status= status.HTTP_200_OK)
         except Exception as e:
             
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
     
     def patch(self,request,*args,**kwargs):
-        token = request.COOKIES.get('access_token')
+        user=request.user
 
-        if not token:
-            return  Response({"error":"Token not found"})
 
         try:
-            access_token = AccessToken(token)
-            user_id  = access_token['user_id']
-
-            user = User.objects.get(id=user_id)
+            
+            
             
             user_role = access_token.get('role',None)
 
             if user_role != self.user_type:
                 return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
-
-            serializer  = self.serializer_class(instance=user,data=request.data,partial=True)
+            
+        
+            serializer  = self.serializer_class(trainer_profile,data=request.data,partial=True)
 
             if not serializer.is_valid():
                 return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)

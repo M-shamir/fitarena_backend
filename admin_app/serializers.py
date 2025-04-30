@@ -2,41 +2,37 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from rest_framework.exceptions import AuthenticationFailed
 from trainer.serializers import TrainerProfile
 
 User = get_user_model()
 
+
 class AdminLoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    username = serializers.CharField() 
     password = serializers.CharField(write_only=True)
 
-    def validate(self,data):
+    def validate(self, data):
         username = data.get("username")
         password = data.get("password")
 
+        # Authenticate using email as username
         user = authenticate(username=username,password=password)
-
-        if not user:
-            raise AuthenticationFailed("Invalid credentials")
-
-        if not user.is_superuser:
-            raise AuthenticationFailed("You are not authorized as an admin")
         
+        if user is None:
+            raise serializers.ValidationError("Invalid email or password.")
+
+        if not user.is_staff:
+            raise serializers.ValidationError("You are not authorized as admin.")
+
         refresh = RefreshToken.for_user(user)
-        access = str(refresh.access_token)
 
         return {
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-                "is_superuser": user.is_superuser,
-            },
-            "access_token": access,
+            "user": user,  # important: return the actual user instance
+            "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
         }
-
 
 class TrainerListSerializer(serializers.ModelSerializer):
     trainer_profile = TrainerProfile()
