@@ -15,3 +15,8 @@ class IsAdmin(BasePermission):
                 getattr(request.user, "role", None) == "admin"
             )
         )
+
+class IsStadiumOwner(BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        return user and user.is_authenticated and getattr(user, 'role', None) == 'stadium_owner'

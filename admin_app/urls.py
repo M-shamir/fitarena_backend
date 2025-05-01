@@ -12,7 +12,13 @@ from .views import (
     ApprovedStadiumOwnerListView,
     ApprovedStadiumOwnerView,
     RejectStadiumOwnerView,
-    ListUnlistStadiumOwnerView
+    ListUnlistStadiumOwnerView,
+    PendingStadiumListView,
+    ApprovedStadiumListView,
+    ApproveStadiumView,
+    RejectStadiumView,
+    ListUnlistStadiumView
+
 )
 
 urlpatterns = [
@@ -29,6 +35,11 @@ urlpatterns = [
     path("stadium_owner/<int:stadium_owner_id>/approve/", ApprovedStadiumOwnerView.as_view(), name="approve-stadium_owner"),
     path("stadium_owner/<int:stadium_owner_id>/reject/", RejectStadiumOwnerView.as_view(), name="reject-stadium_owner"),
     path("stadium_owner/<int:stadium_owner_id>/list-unlist/", ListUnlistStadiumOwnerView.as_view()),
+    path('stadiums/pending-approval/',PendingStadiumListView.as_view(),name="pending-stadium-approval"),
+    path('stadiums/approved/',ApprovedStadiumListView.as_view(),name="pending-stadium-approved"),
+    path('stadiums/<int:stadium_id>/approve/', ApproveStadiumView.as_view(), name='approve-stadium'),
+    path('stadiums/<int:stadium_id>/reject/', RejectStadiumView.as_view(), name='reject-stadium'),
+    path("stadiums/<int:stadium_id>/list-toggle/", ListUnlistStadiumView.as_view()),
 
 
 ]
