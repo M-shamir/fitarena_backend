@@ -206,8 +206,8 @@ class ApproveTrainerCourceView(APIView):
         except TrainerCource.DoesNotExist:
             return Response({"error": "Pending course not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        cource.status = "approval"
-        cource.approval_status = "approval"
+        cource.status = "approved"
+        cource.approval_status = "approved"
         cource.approval_note = request.data.get("approval_note", "")
         cource.save()
 
