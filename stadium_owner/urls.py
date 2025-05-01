@@ -9,7 +9,8 @@ from .views import (
     StadiumCreateView,
     PendingStadiumListView,
     StadiumOwnerEditPendingView,
-    StadiumSoftDeleteView
+    StadiumSoftDeleteView,
+    StadiumOwnerLogoutView
 )
 
 urlpatterns =  [
@@ -22,5 +23,7 @@ urlpatterns =  [
     path('stadiums/pending/', PendingStadiumListView.as_view(), name='pending-stadiums'),
     path('stadiums/edit/<int:pk>/', StadiumOwnerEditPendingView.as_view(), name='owner-edit-pending-stadium'),
     path('stadiums/delete/<int:pk>/', StadiumSoftDeleteView.as_view(), name='stadium-soft-delete'),
+
+    path('logout/',StadiumOwnerLogoutView.as_view()),
     
 ]

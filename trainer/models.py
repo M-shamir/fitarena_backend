@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.utils import timezone
 # Create your models here.
 class TrainerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="trainer_profile")
@@ -29,14 +30,11 @@ class Language(models.Model):
 
 
 class TrainerCource(models.Model):
-    STATUS_CHOICES = [
+    APPROVAL_CHOICES = [
     ('pending', 'Pending'),
-    ('approval', 'Approval'),
-    ('published', 'Published'),
-    ('completed', 'Completed'),
-    ('cancelled', 'Cancelled'),
-]
-
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected'),
+    ]
 
     trainer = models.ForeignKey("TrainerProfile", on_delete=models.CASCADE, related_name="courses")
     title =  models.CharField(max_length=100)
@@ -55,10 +53,10 @@ class TrainerCource(models.Model):
     max_participants = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=8, decimal_places=2)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
     cancellation_reason = models.TextField(blank=True, null=True)
 
-    is_approved = models.BooleanField(default=False)
+    approval_status = models.CharField(max_length=10, choices=APPROVAL_CHOICES, default='pending')
     approval_note = models.TextField(blank=True, null=True)
     is_deleted =  models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

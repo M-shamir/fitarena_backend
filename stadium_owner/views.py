@@ -8,7 +8,7 @@ from django.core.cache import  cache
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseProfileView
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseProfileView,BaseLogoutView
 from account_app.serializers import LoginSerializer
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -36,6 +36,8 @@ class StadiumOwnerLoginView(BaseLoginView):
     serializer_class = LoginSerializer
     user_type = 'stadium_owner'
 
+class StadiumOwnerLogoutView(BaseLogoutView):
+    user_type = 'stadium_owner'
 
 class StadiumOwnerProfile(BaseProfileView):
     permission_classes= [IsAuthenticated,IsStadiumOwner]

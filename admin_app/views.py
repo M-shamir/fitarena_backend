@@ -189,11 +189,46 @@ class TrainerPendingCourceListView(APIView):
     def get(self,request,*args,**kwargs):
         try:
 
-            pending_cource = TrainerCource.objects.filter(status='pending',is_deleted=False)
+            pending_cource = TrainerCource.objects.filter(status='pending',approval_status='pending',is_deleted=False,)
             serializer = TrainerCourceSerializer(pending_cource,many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+class ApproveTrainerCourceView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, cource_id):
+        try:
+            cource = TrainerCource.objects.get(id=cource_id, status="pending", is_deleted=False)
+        except TrainerCource.DoesNotExist:
+            return Response({"error": "Pending course not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        cource.status = "approval"
+        cource.approval_status = "approval"
+        cource.approval_note = request.data.get("approval_note", "")
+        cource.save()
+
+        return Response({"message": "Trainer course approved successfully."}, status=status.HTTP_200_OK)
+
+
+class RejectTrainerCourceView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, cource_id):
+        try:
+            cource = TrainerCource.objects.get(id=cource_id, status="pending", is_deleted=False)
+        except TrainerCource.DoesNotExist:
+            return Response({"error": "Pending course not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        cource.is_approved = False
+        
+        cource.save()
+
+        return Response({"message": "Trainer course rejected successfully."}, status=status.HTTP_200_OK)
 
 
 class PendingStadiumOwnerApprovalView(APIView):
@@ -338,3 +373,16 @@ class ListUnlistStadiumView(APIView):
         
         status_text = "listed" if stadium.listed else "unlisted"
         return Response({"message": f"Stadium successfully {status_text}."}, status=status.HTTP_200_OK)
+
+
+class AdminLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        response = Response({"message": "Admin logged out successfully."}, status=status.HTTP_200_OK)
+
+        
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+
+        return response

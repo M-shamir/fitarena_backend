@@ -17,7 +17,11 @@ from .views import (
     ApprovedStadiumListView,
     ApproveStadiumView,
     RejectStadiumView,
-    ListUnlistStadiumView
+    ListUnlistStadiumView,
+    TrainerPendingCourceListView,
+    ApproveTrainerCourceView,
+    RejectTrainerCourceView,
+    AdminLogoutView
 
 )
 
@@ -29,6 +33,10 @@ urlpatterns = [
     path("trainers/<int:trainer_id>/approve/", ApproveTrainerView.as_view(), name="approve-trainer"),
     path("trainers/<int:trainer_id>/reject/", RejectTrainerView.as_view(), name="reject-trainer"),
     path('trainers/approved/', ApprovedTrainerListView.as_view(), name='approved-trainers'),
+    path('trainers/cource/pending/', TrainerPendingCourceListView.as_view(), name='cource-session'),
+    path('trainers/cource/<int:cource_id>/approve/', ApproveTrainerCourceView.as_view(), name='approve-trainer-cource'),
+    path('trainers/cource/<int:cource_id>/reject/', RejectTrainerCourceView.as_view(), name='reject-trainer-cource'),
+
     path("trainers/<int:trainer_id>/list-unlist/", ListUnlistTrainerView.as_view()),
     path('stadium_owner/pending/',PendingStadiumOwnerApprovalView.as_view(),name="pending-stadium_owner"),
     path('stadium_owner/approved/',ApprovedStadiumOwnerListView.as_view(),name="approved-stadium_owner"),
@@ -41,5 +49,6 @@ urlpatterns = [
     path('stadiums/<int:stadium_id>/reject/', RejectStadiumView.as_view(), name='reject-stadium'),
     path("stadiums/<int:stadium_id>/list-toggle/", ListUnlistStadiumView.as_view()),
 
+    path('logout/', AdminLogoutView.as_view(), name='admin-logout'),
 
 ]

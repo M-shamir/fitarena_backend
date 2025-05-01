@@ -63,6 +63,6 @@ class TrainerCourceSerializer(serializers.ModelSerializer):
             'id', 'title', 'trainer_name', 'trainer_type', 'description', 'thumbnail',
             'start_date', 'end_date', 'start_time', 'end_time', 'days_of_week',
             'max_participants', 'price', 'status', 'cancellation_reason',
-            'is_approved', 'approval_note', 'is_deleted', 'created_at', 'updated_at',
+            'approval_status', 'approval_note', 'is_deleted', 'created_at', 'updated_at',
             'duration_minutes'
         ]

@@ -159,7 +159,7 @@ class PendingApprovalSessionsView(ListAPIView):
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
             status='pending',
-            is_approved=False,
+            approval_status='pending',
             is_deleted=False
         )
 
@@ -204,30 +204,30 @@ class ApprovedSessionsView(ListAPIView):
         
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
-            status='approved',
-            is_approved=True
+            status="approval",
+            approval_status = "approval"
         )
 
 
-class ApprovedSessionsView(ListAPIView):
-    permission_classes = [IsAuthenticated, IsTrainer] 
-    serializer_class = TrainerCourceSerializer
+# class ApprovedSessionsView(ListAPIView):
+#     permission_classes = [IsAuthenticated, IsTrainer] 
+#     serializer_class = TrainerCourceSerializer
 
-    def get_queryset(self):
-        user = self.request.user
+#     def get_queryset(self):
+#         user = self.request.user
 
         
 
-        try:
-            trainer_profile = TrainerProfile.objects.get(user=user)
-        except TrainerProfile.DoesNotExist:
-            raise AuthenticationFailed('Trainer profile not found.')
+#         try:
+#             trainer_profile = TrainerProfile.objects.get(user=user)
+#         except TrainerProfile.DoesNotExist:
+#             raise AuthenticationFailed('Trainer profile not found.')
 
       
-        return TrainerCource.objects.filter(
-            trainer=trainer_profile,
-            is_approved=True
-        )
+#         return TrainerCource.objects.filter(
+#             trainer=trainer_profile,
+#             is_approved=True
+#         )
 
 class DeleteTrainerCourceView(DestroyAPIView):
     permission_classes = [IsAuthenticated, IsTrainer] 
@@ -258,7 +258,7 @@ class TrainerPendingEditView(APIView):
         except TrainerCource.DoesNotExist:
             raise NotFound("Course not found.")
 
-        if cource.status != 'pending' or cource.is_approved:
+        if cource.status != 'pending':
             return Response({'detail': 'Course is not in pending approval state.'}, status=400)
 
         serializer = TrainerCourceSerializer(cource, data=request.data, partial=True)
