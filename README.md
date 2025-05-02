@@ -1,4 +1,4 @@
-# 🏋️‍♂ FitArena Backend API
+# FitArena Backend API
 
 FitArena is a backend system built using Django REST Framework for managing stadium bookings and trainer course bookings.
 
