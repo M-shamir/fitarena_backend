@@ -230,6 +230,18 @@ class RejectTrainerCourceView(APIView):
 
         return Response({"message": "Trainer course rejected successfully."}, status=status.HTTP_200_OK)
 
+class ApprovedTrainerCourceListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request, *args, **kwargs):
+        approved_cources = TrainerCource.objects.filter(
+            status='approved',
+            approval_status='approved',
+            is_deleted=False
+        )
+        serializer = TrainerCourceSerializer(approved_cources, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PendingStadiumOwnerApprovalView(APIView):
     permission_classes = [IsAuthenticated,IsAdmin]

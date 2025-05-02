@@ -204,8 +204,8 @@ class ApprovedSessionsView(ListAPIView):
         
         return TrainerCource.objects.filter(
             trainer=trainer_profile,
-            status="approval",
-            approval_status = "approval"
+            status="approved",
+            approval_status = "approved"
         )
 
 

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from account_app.serializers import BaseSignUpSerializer
 from django.contrib.gis.geos import Point
-from .models import StadiumOwnerProfile,Stadium
+from .models import StadiumOwnerProfile,Stadium,Slot
+from datetime import datetime, time
 
 class StadiumOwnerSignUpSerializer(BaseSignUpSerializer):
     phone_number = serializers.CharField(max_length=15)
@@ -43,3 +44,23 @@ class StadiumSerializer(serializers.ModelSerializer):
         validated_data['location'] = Point(lng, lat)
         validated_data['owner'] = self.context['request'].user.stadiumowner_profile
         return super().create(validated_data)
+
+
+class SlotCreateSerializer(serializers.Serializer):
+    stadium_id = serializers.IntegerField()
+    start_date = serializers.DateField()
+    start_time = serializers.TimeField()
+    end_time = serializers.TimeField()
+    price = serializers.DecimalField(max_digits=8, decimal_places=2)
+
+    def validate(self, data):
+        if data['start_time'] >= data['end_time']:
+            raise serializers.ValidationError("End time must be after start time.")
+        return data
+
+
+
+class SlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Slot
+        fields = ['date', 'start_time', 'end_time', 'price', 'status']

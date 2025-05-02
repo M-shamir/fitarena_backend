@@ -21,7 +21,8 @@ from .views import (
     TrainerPendingCourceListView,
     ApproveTrainerCourceView,
     RejectTrainerCourceView,
-    AdminLogoutView
+    AdminLogoutView,
+    ApprovedTrainerCourceListView
 
 )
 
@@ -36,6 +37,7 @@ urlpatterns = [
     path('trainers/cource/pending/', TrainerPendingCourceListView.as_view(), name='cource-session'),
     path('trainers/cource/<int:cource_id>/approve/', ApproveTrainerCourceView.as_view(), name='approve-trainer-cource'),
     path('trainers/cource/<int:cource_id>/reject/', RejectTrainerCourceView.as_view(), name='reject-trainer-cource'),
+    path('trainer-courses/approved/', ApprovedTrainerCourceListView.as_view(), name='approved-trainer-courses'),
 
     path("trainers/<int:trainer_id>/list-unlist/", ListUnlistTrainerView.as_view()),
     path('stadium_owner/pending/',PendingStadiumOwnerApprovalView.as_view(),name="pending-stadium_owner"),
