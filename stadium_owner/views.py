@@ -81,19 +81,33 @@ class StadiumSoftDeleteView(generics.DestroyAPIView):
 
 
 class ApprovedStadiumsListView(APIView):
-    
-
     permission_classes = [IsAuthenticated, IsStadiumOwner]
 
     def get(self, request, *args, **kwargs):
+        try:
+            user = request.user
+            owner_profile = user.stadiumowner_profile  
+            
+            stadiums = Stadium.objects.filter(
+                owner=owner_profile,
+                approval_status='approved',
+                is_deleted=False
+            )
+            
+            serializer = StadiumSerializer(stadiums, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         
-        stadiums = Stadium.objects.filter(approval_status='approved', is_deleted=False)
-        
-        
-        serializer = StadiumSerializer(stadiums, many=True)
-        
-        
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        except StadiumOwnerProfile.DoesNotExist:
+            return Response(
+                {'error': 'Stadium owner profile not found for this user.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to retrieve stadiums', 'details': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class UnassignedStadiumsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsStadiumOwner]
