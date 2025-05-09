@@ -92,7 +92,7 @@ class TrainerProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     profile_photo = serializers.ImageField(source='user.profile_photo', required=False)
 
-    # For POST/PATCH/PUT: Accept IDs
+    
     trainer_type = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=TrainerType.objects.all(),

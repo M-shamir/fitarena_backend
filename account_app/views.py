@@ -66,7 +66,7 @@ class BaseLoginView(APIView):
 
         access['role'] = self.user_type
 
-        # Set token cookies (HttpOnly)
+        
         response = Response({
             "message": "Login successful",
             "user": {
