@@ -6,7 +6,7 @@ import json
 class TrainerCourseService:
 
     @staticmethod
-    def create_course(trainer, base_info, course_variant):
+    def create_course(trainer, base_info, course_variant, thumbnail=None):
         if isinstance(base_info, str):
             base_info = json.loads(base_info)
 
@@ -37,5 +37,6 @@ class TrainerCourseService:
             start_date=start_date,
             end_date=end_date,
             status='pending',
+            thumbnail=thumbnail,
         )
         return course

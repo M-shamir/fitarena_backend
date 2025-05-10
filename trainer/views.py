@@ -123,6 +123,7 @@ class TrainerCreateCourceView(APIView):
             
             base_info = request.data.get('base_info')
             course_variant = request.data.get('course_variant')
+            thumbnail = request.FILES.get('thumbnail')
 
             if not base_info or not course_variant:
                 return Response(
@@ -130,7 +131,7 @@ class TrainerCreateCourceView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
              # Create the course using the service
-            course = TrainerCourseService.create_course(trainer, base_info, course_variant)
+            course = TrainerCourseService.create_course(trainer, base_info, course_variant,thumbnail=thumbnail )
             course_serializer = TrainerCourceSerializer(course)
             return Response(
                 {"message": "Course created successfully!", "course": course_serializer.data},

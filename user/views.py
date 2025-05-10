@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer
 from django.utils import timezone
+from rest_framework import generics
 from services.email_service import send_otp_email
 from services.otp_service import generate_otp,store_otp
 from django.core.cache import  cache
@@ -21,6 +22,7 @@ from stadium_owner.models import Stadium
 from django.contrib.gis.geos import Point
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
+from trainer.models import TrainerProfile
 
 from django.conf import settings
 import logging
@@ -64,37 +66,6 @@ class UserResetPasswordView(BaseResetPassword):
 class UserProfileView(BaseProfileView):
     user_type ='user'
     
-class UserTrainerCoursesView(APIView):
-    permission_classes = [AllowAny]
-    def get(self, request):
-        courses = TrainerCource.objects.filter(
-            approval_status='approval',
-            is_deleted=False,
-            trainer__listed=True
-        ).select_related('trainer__user', 'trainer_type').prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')
-
-        serializer = TrainerCourceSerializer(courses, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class UserTrainerCourseDetailView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, course_id):
-        course = get_object_or_404(
-            TrainerCource.objects.select_related('trainer__user', 'trainer_type')
-            .prefetch_related('trainer__trainer_type', 'trainer__languages_spoken'),
-            id=course_id,
-            approval_status='approval',
-            is_deleted=False,
-            trainer__listed=True
-        )
-
-        serializer = TrainerCourceSerializer(course)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-
-
 
 class NearbyStadiumsAPIView(APIView):
     permission_classes = [AllowAny]
@@ -103,7 +74,7 @@ class NearbyStadiumsAPIView(APIView):
         lng = request.query_params.get('lng')
         
         try:
-            # If location provided, filter by distance
+            
             if lat and lng:
                 user_location = Point(float(lng), float(lat), srid=4326)
                 
@@ -111,7 +82,7 @@ class NearbyStadiumsAPIView(APIView):
                     approval_status='approved',
                     listed=True,
                     is_deleted=False,
-                    location__distance_lte=(user_location, D(km=50))
+                    location__distance_lte=(user_location, D(km=500))
                 ).annotate(
                     distance=Distance('location', user_location)
                 ).order_by('distance')[:6]
@@ -173,7 +144,7 @@ class StadiumDetailAPIView(APIView):
     def get(self, request, pk):
         stadium = get_object_or_404(Stadium, pk=pk, listed=True, is_deleted=False)
         
-        # Prefetch related data to optimize queries
+        
         stadium = Stadium.objects.select_related(
             'owner', 
             'owner__user'
@@ -182,4 +153,34 @@ class StadiumDetailAPIView(APIView):
         ).get(pk=pk)
         
         serializer = StadiumSerializer(stadium)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class AvailableTrainerAPIView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = TrainerProfileSerializer
+
+    def get_queryset(self):
+        return TrainerProfile.objects.filter(
+            listed=True,
+            courses__is_deleted=False,
+            courses__approval_status='approved'
+        ).distinct().prefetch_related('trainer_type', 'languages_spoken', 'user')
+    
+class TrainerCoursesAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+
+    def get(self, request, trainer_id):
+        try:
+            trainer = TrainerProfile.objects.get(id=trainer_id, listed=True)
+        except TrainerProfile.DoesNotExist:
+            return Response({'error': 'Trainer not found or not listed.'}, status=status.HTTP_404_NOT_FOUND)
+
+        courses = TrainerCource.objects.filter(
+            trainer=trainer,
+            approval_status='approved',
+            is_deleted=False
+        ).select_related('trainer', 'trainer_type').prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')
+
+        serializer = TrainerCourceSerializer(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

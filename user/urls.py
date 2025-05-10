@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignUpView,UserVerifyOtpView,UserResendOtpView,LoginView,UserForgotPasswordView,UserResetPasswordView,UserLogoutView,UserProfileView,UserTrainerCoursesView,UserTrainerCourseDetailView,NearbyStadiumsAPIView,StadiumDetailAPIView
+from .views import SignUpView,UserVerifyOtpView,UserResendOtpView,LoginView,UserForgotPasswordView,UserResetPasswordView,UserLogoutView,UserProfileView,NearbyStadiumsAPIView,StadiumDetailAPIView,AvailableTrainerAPIView,TrainerCoursesAPIView
 
 urlpatterns =  [
     path('auth/signup',SignUpView.as_view(),name='signup'),
@@ -9,8 +9,8 @@ urlpatterns =  [
     path('forgot-password/',UserForgotPasswordView.as_view(),name='user-forgot-password'),
     path('reset-password/',UserResetPasswordView.as_view(),name='reset-password'),
     path('profile/',UserProfileView.as_view(),name='profile'),
-    path('trainer-courses/', UserTrainerCoursesView.as_view(), name='user-trainer-courses'),
-    path('courses/<int:course_id>/', UserTrainerCourseDetailView.as_view(), name='trainer-course-detail'),
+    path('trainers/available/', AvailableTrainerAPIView.as_view(), name='available-trainers'),
+    path('trainers/<int:trainer_id>/courses/', TrainerCoursesAPIView.as_view(), name='trainer-courses'),
     path('stadiums/nearby/', NearbyStadiumsAPIView.as_view(), name='nearby_stadiums_api'),
     path('stadiums/<int:pk>/', StadiumDetailAPIView.as_view(), name='stadium-detail'),
     path('logout/',UserLogoutView.as_view())
