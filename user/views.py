@@ -82,7 +82,7 @@ class NearbyStadiumsAPIView(APIView):
                     approval_status='approved',
                     listed=True,
                     is_deleted=False,
-                    location__distance_lte=(user_location, D(km=500))
+                    location__distance_lte=(user_location, D(km=50))
                 ).annotate(
                     distance=Distance('location', user_location)
                 ).order_by('distance')[:6]
@@ -166,6 +166,8 @@ class AvailableTrainerAPIView(generics.ListAPIView):
             courses__approval_status='approved'
         ).distinct().prefetch_related('trainer_type', 'languages_spoken', 'user')
     
+
+    
 class TrainerCoursesAPIView(APIView):
     permission_classes = [AllowAny]
     
@@ -183,4 +185,19 @@ class TrainerCoursesAPIView(APIView):
         ).select_related('trainer', 'trainer_type').prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')
 
         serializer = TrainerCourceSerializer(courses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CourseDetailAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, course_id):
+        try:
+            course = TrainerCource.objects.select_related('trainer', 'trainer_type')\
+                .prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')\
+                .get(id=course_id, approval_status='approved', is_deleted=False)
+        except TrainerCource.DoesNotExist:
+            return Response({'error': 'Course not found or not available.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = TrainerCourceSerializer(course)
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'trainer',
     'stadium_owner',
     'admin_app',
-    'account_app'
+    'account_app',
+    'payment'
    
 ]
 
@@ -154,6 +155,14 @@ GEOS_LIBRARY_PATH = os.environ.get("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-g
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
+
+
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
+FRONTEND_SUCCESS_URL = 'http://localhost:3000/user/bookings/courses/success'
+FRONTEND_CANCEL_URL = 'http://localhost:3000/user/bookings/courses/cancel'
+
 
 LOGGING = {
     'version': 1,
