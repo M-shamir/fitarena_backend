@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'stadium_owner',
     'admin_app',
     'account_app',
-    'payment'
+    'payment',
+    'orders'
    
 ]
 
@@ -71,7 +72,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',  
     'http://localhost:3001',
     'http://localhost:3002',
-    'http://localhost:3003',      
+    'http://localhost:3003',  
+    'http://localhost:3004',     
 ]
 
 ROOT_URLCONF = 'fitarena.urls'

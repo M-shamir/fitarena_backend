@@ -1,9 +1,7 @@
-# payment/urls.py
 from django.urls import path
-from .views import CreateCheckoutSessionView, stripe_webhook, VerifyPaymentView
+from .views import CreateCoursePaymentAPIView,VerifyPaymentAPIView
 
 urlpatterns = [
-    path('create-checkout-session/', CreateCheckoutSessionView.as_view(), name='create-checkout-session'),
-    path('verify-payment/', VerifyPaymentView.as_view(), name='verify-payment'),  
-    path('webhook/', stripe_webhook, name='stripe-webhook'),
+    path('course/<int:course_id>/', CreateCoursePaymentAPIView.as_view(), name='create_course_payment'),
+    path('verify/', VerifyPaymentAPIView.as_view(), name='verify_payment'),
 ]

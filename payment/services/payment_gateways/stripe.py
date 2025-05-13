@@ -1,69 +1,62 @@
+# services/payment_gateways/stripe.py
 import stripe
 from django.conf import settings
+from django.urls import reverse
 from .base import PaymentGateway
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
-class StripeGateway(PaymentGateway):
+class StripePaymentGateway(PaymentGateway):
+    def __init__(self):
+        self.success_url = settings.FRONTEND_SUCCESS_URL
+        self.cancel_url =settings.FRONTEND_CANCEL_URL
+
+
     def create_payment_intent(self, amount, currency, metadata=None):
         try:
-            # For Checkout, we create a Session instead of PaymentIntent
+            # For Checkout, we create a session instead of a PaymentIntent
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
                     'price_data': {
                         'currency': currency.lower(),
                         'product_data': {
-                            'name': metadata.get('product_name', 'Product'),
+                            'name': metadata.get('product_name', 'Course Enrollment'),
                         },
-                        'unit_amount': int(float(amount) * 100),  # Convert to cents
+                        'unit_amount': int(amount * 100),  # Stripe uses cents
                     },
                     'quantity': 1,
                 }],
                 mode='payment',
-                success_url=metadata.get('success_url', settings.FRONTEND_SUCCESS_URL),
-                cancel_url=metadata.get('cancel_url', settings.FRONTEND_CANCEL_URL),
-                metadata=metadata or {}
+                success_url=f"{self.success_url}?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=self.cancel_url,
+                metadata=metadata or {},
             )
-            return True, {
+            return {
                 'session_id': session.id,
-                'url': session.url  # Redirect to this URL for Checkout
+                'payment_url': session.url
             }
-        except stripe.error.StripeError as e:
-            return False, str(e)
+        except Exception as e:
+            raise Exception(f"Stripe error: {str(e)}")
 
-    def verify_payment(self, payment_id):
+    def verify_payment(self, session_id):
         try:
-            session = stripe.checkout.Session.retrieve(payment_id)
-            return True, {
-                'id': session.id,
-                'payment_status': session.payment_status,
-                'amount_total': session.amount_total / 100,
+            session = stripe.checkout.Session.retrieve(session_id)
+            return {
+                'paid': session.payment_status == 'paid',
+                'amount': session.amount_total / 100,
                 'currency': session.currency,
                 'metadata': session.metadata
             }
-        except stripe.error.StripeError as e:
-            return False, str(e)
+        except Exception as e:
+            raise Exception(f"Stripe verification error: {str(e)}")
 
     def refund_payment(self, payment_id, amount=None):
         try:
-            # First get the PaymentIntent ID from the Session
-            session = stripe.checkout.Session.retrieve(
-                payment_id,
-                expand=['payment_intent']
+            refund = stripe.Refund.create(
+                payment_intent=payment_id,
+                amount=int(amount * 100) if amount else None
             )
-            
-            refund_params = {
-                'payment_intent': session.payment_intent.id
-            }
-            if amount:
-                refund_params['amount'] = int(amount * 100)
-                
-            refund = stripe.Refund.create(**refund_params)
-            return True, {
-                'id': refund.id,
-                'amount': refund.amount / 100,
-                'status': refund.status
-            }
-        except stripe.error.StripeError as e:
-            return False, str(e)
+            return refund.status == 'succeeded'
+        except Exception as e:
+            raise Exception(f"Stripe refund error: {str(e)}")

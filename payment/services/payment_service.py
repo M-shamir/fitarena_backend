@@ -1,29 +1,29 @@
+# services/payment_service.py
 from django.conf import settings
-from .payment_gateways.stripe import StripeGateway
+from .payment_gateways import stripe as stripe_gateway
 
 class PaymentService:
-    def __init__(self, gateway='stripe', request=None):
-        if gateway == 'stripe':
-            self.gateway = StripeGateway()
-        else:
-            raise ValueError("Unsupported gateway")
-        self.request = request  # Store the request object
+    def __init__(self):
+        self.gateway = stripe_gateway.StripePaymentGateway()
 
-    def create_checkout_session(self, amount, currency, metadata=None):
-        """Specific method for Stripe Checkout"""
-        if not metadata:
-            metadata = {}
+    def create_course_payment(self, user, course):
+        metadata = {
+            'user_id': str(user.id),
+            'course_id': str(course.id),
+            'product_name': course.title,
+            'type': 'course'
+        }
         
-        # Ensure required URLs are set
-        if self.request and self.request.user.is_authenticated:
-            metadata.setdefault('user_id', self.request.user.id)
-        metadata.setdefault('success_url', settings.FRONTEND_SUCCESS_URL)
-        metadata.setdefault('cancel_url', settings.FRONTEND_CANCEL_URL)
+        result = self.gateway.create_payment_intent(
+            amount=course.price,
+            currency='INR',
+            metadata=metadata
+        )
         
-        return self.gateway.create_payment_intent(amount, currency, metadata)
-    
-    def verify_payment(self, payment_id):
-        return self.gateway.verify_payment(payment_id)
-    
-    def refund_payment(self, payment_id, amount=None):
-        return self.gateway.refund_payment(payment_id, amount)
+        return {
+            'payment_url': result['payment_url'],
+            'session_id': result['session_id']
+        }
+
+    def verify_payment(self, session_id):
+        return self.gateway.verify_payment(session_id)

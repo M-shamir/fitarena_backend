@@ -9,7 +9,7 @@ class Order(models.Model):
         ('slot', 'Stadium Slot'),
     ]
 
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     order_type = models.CharField(max_length=10, choices=ORDER_TYPES)
     stripe_session_id = models.CharField(max_length=255, unique=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
