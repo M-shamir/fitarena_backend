@@ -27,7 +27,7 @@ class CourseEnrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
 
 class SlotBooking(models.Model):
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='slot_booking')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='slot_bookings')
     slot = models.ForeignKey(Slot, on_delete=models.PROTECT)
     booking_date = models.DateField()
     booked_at = models.DateTimeField(auto_now_add=True)

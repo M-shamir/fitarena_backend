@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer
+from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer
 from django.utils import timezone
 from rest_framework import generics
 from services.email_service import send_otp_email
@@ -18,12 +18,13 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
 from trainer.models import TrainerCource
-from stadium_owner.models import Stadium
+from stadium_owner.models import Stadium,Slot
 from django.contrib.gis.geos import Point
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
 from trainer.models import TrainerProfile
-
+from django.utils.timezone import now
+from django.db.models import Sum
 from django.conf import settings
 import logging
 
@@ -201,3 +202,73 @@ class CourseDetailAPIView(APIView):
 
         serializer = TrainerCourceSerializer(course)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AvailableUpcomingSlotsAPIView(APIView):
+    permission_classes = [AllowAny]  
+
+    def get(self, request, stadium_id):
+        current_datetime = now()
+        today = current_datetime.date()
+        current_time = current_datetime.time()
+
+        # Get today's future slots
+        today_slots = Slot.objects.filter(
+            stadium_id=stadium_id,
+            date=today,
+            start_time__gt=current_time,
+            status='available'
+        )
+
+        # Get future days' slots
+        future_slots = Slot.objects.filter(
+            stadium_id=stadium_id,
+            date__gt=today,
+            status='available'
+        )
+
+        slots = today_slots.union(future_slots).order_by('date', 'start_time')
+
+        serializer = SlotSerializer(slots, many=True)
+        return Response(serializer.data)
+
+
+
+
+class BookSlotsAPIView(APIView):
+    def get(self, request, stadium_id):
+        slot_ids_param = request.query_params.get('ids')
+
+        if not slot_ids_param:
+            return Response({'error': 'No slot IDs provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            slot_ids = [int(sid) for sid in slot_ids_param.split(',') if sid.strip().isdigit()]
+        except ValueError:
+            return Response({'error': 'Invalid slot ID format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch the slots
+        slots = Slot.objects.filter(id__in=slot_ids, stadium_id=stadium_id, status='available')
+
+        if slots.count() != len(slot_ids):
+            return Response({'error': 'Some slots are not available or do not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Confirm all slots belong to the same stadium
+        if slots.values('stadium_id').distinct().count() > 1:
+            return Response({'error': 'Slots do not belong to the same stadium'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_price = sum([slot.price for slot in slots])
+
+        slot_data = [{
+            'id': slot.id,
+            'start_time': slot.start_time,
+            'end_time': slot.end_time,
+            'price': str(slot.price),
+            'status': slot.status,
+            'stadium_id': slot.stadium_id,
+        } for slot in slots]
+
+        return Response({
+            'slots': slot_data,
+            'total_price': str(total_price)
+        }, status=status.HTTP_200_OK)

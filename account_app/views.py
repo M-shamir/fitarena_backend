@@ -71,6 +71,7 @@ class BaseLoginView(APIView):
             "message": "Login successful",
             "user": {
                 "id": user.id,
+                "username":user.username,
                 "email": user.email,
                 "role": self.user_type,
             }

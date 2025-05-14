@@ -8,13 +8,13 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class StripePaymentGateway(PaymentGateway):
     def __init__(self):
-        self.success_url = settings.FRONTEND_SUCCESS_URL
-        self.cancel_url =settings.FRONTEND_CANCEL_URL
+        pass
 
-
-    def create_payment_intent(self, amount, currency, metadata=None):
+    def create_payment_intent(self, amount, currency, metadata=None, success_url=None, cancel_url=None):
         try:
-            # For Checkout, we create a session instead of a PaymentIntent
+            success_url = success_url or self.success_url
+            cancel_url = cancel_url or self.cancel_url
+
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
@@ -28,16 +28,20 @@ class StripePaymentGateway(PaymentGateway):
                     'quantity': 1,
                 }],
                 mode='payment',
-                success_url=f"{self.success_url}?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=self.cancel_url,
+                success_url=f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=cancel_url,
                 metadata=metadata or {},
             )
+
             return {
                 'session_id': session.id,
                 'payment_url': session.url
             }
+
         except Exception as e:
             raise Exception(f"Stripe error: {str(e)}")
+
+
 
     def verify_payment(self, session_id):
         try:
