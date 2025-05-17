@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer
+from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer,CourseEnrollmentSerializer
 from django.utils import timezone
 from rest_framework import generics
 from services.email_service import send_otp_email
@@ -247,13 +247,13 @@ class BookSlotsAPIView(APIView):
         except ValueError:
             return Response({'error': 'Invalid slot ID format'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch the slots
+       
         slots = Slot.objects.filter(id__in=slot_ids, stadium_id=stadium_id, status='available')
 
         if slots.count() != len(slot_ids):
             return Response({'error': 'Some slots are not available or do not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Confirm all slots belong to the same stadium
+        
         if slots.values('stadium_id').distinct().count() > 1:
             return Response({'error': 'Slots do not belong to the same stadium'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -272,3 +272,18 @@ class BookSlotsAPIView(APIView):
             'slots': slot_data,
             'total_price': str(total_price)
         }, status=status.HTTP_200_OK)
+
+
+
+class UpcomingCourseEnrollmentList(generics.ListAPIView):
+    serializer_class   = CourseEnrollmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user   = self.request.user
+        cutoff = timezone.now() - timedelta(hours=24)
+        return CourseEnrollment.objects.filter(
+            order__user=user,
+            is_cancelled=False,
+            enrolled_at__lte=cutoff
+        ).order_by('-enrolled_at')

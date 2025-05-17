@@ -83,7 +83,7 @@ class Slot(models.Model):
         blank=True,
         related_name='blocked_slots'
     )
-
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

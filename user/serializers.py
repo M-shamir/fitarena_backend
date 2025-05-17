@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate
 from account_app.serializers import BaseSignUpSerializer,LoginSerializer
 from trainer.models import TrainerProfile,TrainerCource,TrainerType,Language
 from stadium_owner.models import *
+from orders.models import *
 
 User =  get_user_model()
 
@@ -89,3 +90,18 @@ class StadiumSerializer(serializers.ModelSerializer):
                 'coordinates': [obj.location.x, obj.location.y]
             }
         return None
+
+
+class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    course_title   = serializers.CharField(source='course.title', read_only=True)
+    enrolled_at    = serializers.DateTimeField(read_only=True)
+    is_cancelled   = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model  = CourseEnrollment
+        fields = [
+            'id',
+            'course_title',
+            'enrolled_at',
+            'is_cancelled',
+        ]
