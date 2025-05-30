@@ -23,5 +23,6 @@ urlpatterns = [
     path('api/trainer/',include('trainer.urls')),
     path('api/stadium_owner/',include('stadium_owner.urls')),
     path("api/admin-api/", include("admin_app.urls")),
-    path("api/payment/",include("payment.urls"))
+    path("api/payment/",include("payment.urls")),
+    path("api/orders/",include("orders.urls"))
 ]

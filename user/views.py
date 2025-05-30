@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer,CourseEnrollmentSerializer
+from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer
 from django.utils import timezone
 from rest_framework import generics
 from services.email_service import send_otp_email
@@ -172,21 +172,35 @@ class AvailableTrainerAPIView(generics.ListAPIView):
 class TrainerCoursesAPIView(APIView):
     permission_classes = [AllowAny]
     
-
     def get(self, request, trainer_id):
         try:
             trainer = TrainerProfile.objects.get(id=trainer_id, listed=True)
         except TrainerProfile.DoesNotExist:
-            return Response({'error': 'Trainer not found or not listed.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'Trainer not found or not listed.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         courses = TrainerCource.objects.filter(
             trainer=trainer,
             approval_status='approved',
             is_deleted=False
-        ).select_related('trainer', 'trainer_type').prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')
+        ).select_related('trainer', 'trainer_type')\
+         .prefetch_related(
+            'trainer__trainer_type', 
+            'trainer__languages_spoken',
+            'enrollments'  # Prefetch enrollments for counting
+         )
 
-        serializer = TrainerCourceSerializer(courses, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = TrainerCourceSerializer(courses, many=True, context={'request': request})
+        
+        # Add enrollment info to each course in response
+        response_data = serializer.data
+        for course_data, course_obj in zip(response_data, courses):
+            course_data['available_slots'] = course_obj.available_slots
+            course_data['current_enrollments'] = course_obj.current_enrollments
+        
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class CourseDetailAPIView(APIView):
@@ -198,10 +212,17 @@ class CourseDetailAPIView(APIView):
                 .prefetch_related('trainer__trainer_type', 'trainer__languages_spoken')\
                 .get(id=course_id, approval_status='approved', is_deleted=False)
         except TrainerCource.DoesNotExist:
-            return Response({'error': 'Course not found or not available.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'Course not found or not available.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = TrainerCourceSerializer(course)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = serializer.data
+        response_data['available_slots'] = course.available_slots
+        response_data['current_enrollments'] = course.current_enrollments
+        
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class AvailableUpcomingSlotsAPIView(APIView):
@@ -275,15 +296,3 @@ class BookSlotsAPIView(APIView):
 
 
 
-class UpcomingCourseEnrollmentList(generics.ListAPIView):
-    serializer_class   = CourseEnrollmentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user   = self.request.user
-        cutoff = timezone.now() - timedelta(hours=24)
-        return CourseEnrollment.objects.filter(
-            order__user=user,
-            is_cancelled=False,
-            enrolled_at__lte=cutoff
-        ).order_by('-enrolled_at')

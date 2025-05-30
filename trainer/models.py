@@ -76,3 +76,17 @@ class TrainerCource(models.Model):
             dt_end += timedelta(days=1)
 
         return int((dt_end - dt_start).total_seconds() / 60)
+    
+    @property
+    def available_slots(self):
+        return self.max_participants - self.current_enrollments
+    
+    @property
+    def current_enrollments(self):
+        return self.enrollments.filter(is_cancelled=False).count()
+    
+    def is_user_enrolled(self, user):
+        return self.enrollments.filter(
+            order__user=user,
+            is_cancelled=False
+        ).exists()
