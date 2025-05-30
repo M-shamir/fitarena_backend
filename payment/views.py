@@ -12,10 +12,20 @@ class CreateCoursePaymentAPIView(APIView):
 
     def post(self, request, course_id):
         try:
-            course = TrainerCource.objects.get(id=course_id)
+            course = TrainerCource.objects.get(
+                id=course_id,
+                approval_status='approved',
+                is_deleted=False
+            )
         except TrainerCource.DoesNotExist:
-            return Response({'error': 'Course not found'}, status=404)
-
+            return Response({'error': 'Course not found or not available'}, status=404)
+        
+        if course.available_slots <= 0:
+            return Response({'error': 'This course is fully booked'}, status=400)
+            
+        if course.is_user_enrolled(request.user):
+            return Response({'error': 'You are already enrolled in this course'}, status=400)
+            
         payment_service = PaymentService()
 
         try:
@@ -41,24 +51,48 @@ class VerifyPaymentAPIView(APIView):
                 course_id = metadata.get('course_id')
 
                 if user_id and course_id:
-                    order = Order.objects.create(
-                        user_id=user_id,
-                        order_type='course',
-                        stripe_session_id=session_id,
-                        amount=verification['amount'],
-                        currency=verification['currency'],
-                        status='completed'
-                    )
+                    with transaction.atomic():
+                        # Prevent duplicate processing
+                        if Order.objects.filter(stripe_session_id=session_id).exists():
+                            return Response({'error': 'Payment already processed'}, status=400)
+                            
+                        # Lock the course row for update
+                        course = TrainerCource.objects.select_for_update().get(id=course_id)
+                        
+                        # Check capacity again after lock
+                        if course.current_enrollments >= course.max_participants:
+                            return Response({
+                                'paid': True,
+                                'error': 'Course is now fully booked. Your payment will be refunded.'
+                            }, status=200)
+                            
+                        # Check if user already enrolled (race condition protection)
+                        if course.is_user_enrolled(user_id):
+                            return Response({
+                                'paid': True,
+                                'error': 'You are already enrolled in this course. Payment will be refunded.'
+                            }, status=200)
+                            
+                        # Create order and enrollment
+                        order = Order.objects.create(
+                            user_id=user_id,
+                            order_type='course',
+                            stripe_session_id=session_id,
+                            amount=verification['amount'],
+                            currency=verification['currency'],
+                            status='completed'
+                        )
 
-                    CourseEnrollment.objects.create(
-                        order=order,
-                        course_id=course_id
-                    )
+                        CourseEnrollment.objects.create(
+                            order=order,
+                            course_id=course_id
+                        )
 
-                    return Response({
-                        'success': True,
-                        'course_id': course_id
-                    })
+                        return Response({
+                            'success': True,
+                            'course_id': course_id,
+                            'available_slots': course.available_slots
+                        })
 
             return Response({'paid': False}, status=200)
         except Exception as e:

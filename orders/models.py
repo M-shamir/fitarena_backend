@@ -23,7 +23,7 @@ class Order(models.Model):
 
 class CourseEnrollment(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='course_enrollment')
-    course = models.ForeignKey(TrainerCource, on_delete=models.PROTECT)
+    course = models.ForeignKey(TrainerCource, on_delete=models.PROTECT, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
     is_cancelled = models.BooleanField(default=False)
     cancelled_at = models.DateTimeField(blank=True, null=True)
