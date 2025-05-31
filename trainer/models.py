@@ -90,3 +90,19 @@ class TrainerCource(models.Model):
             order__user=user,
             is_cancelled=False
         ).exists()
+    
+
+class CourseSession(models.Model):
+    course = models.ForeignKey(TrainerCource, on_delete=models.CASCADE, related_name='sessions')
+    session_date = models.DateField()
+    zego_room_id = models.CharField(max_length=255)
+    zego_token = models.TextField()
+    is_completed = models.BooleanField(default=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+class SessionParticipant(models.Model):
+    session = models.ForeignKey(CourseSession, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    joined_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)

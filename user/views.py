@@ -26,6 +26,8 @@ from trainer.models import TrainerProfile
 from django.utils.timezone import now
 from django.db.models import Sum
 from django.conf import settings
+from trainer.models import *
+from trainer.services.zego_service import ZegoCloudService
 import logging
 
 
@@ -296,3 +298,88 @@ class BookSlotsAPIView(APIView):
 
 
 
+
+class UserLiveSessionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user = request.user
+            today = timezone.now().date()
+            
+            # Get sessions where user is enrolled and session is today
+            sessions = CourseSession.objects.filter(
+                course__enrollments__order__user=user,
+                session_date=today,
+                is_completed=False
+            ).select_related('course', 'course__trainer__user').order_by('course__start_time')
+            
+            data = [{
+                "id": session.id,
+                "course_id": session.course.id,
+                "course_title": session.course.title,
+                "session_date": session.session_date,
+                "start_time": session.course.start_time.strftime("%H:%M"),
+                "end_time": session.course.end_time.strftime("%H:%M"),
+                "zego_room_id": session.zego_room_id,
+                "trainer_name": session.course.trainer.user.get_full_name(),
+                "is_live": session.started_at is not None and session.ended_at is None,
+                "thumbnail": request.build_absolute_uri(session.course.thumbnail.url) if session.course.thumbnail else None
+            } for session in sessions]
+            
+            return Response(data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class UserJoinSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id):
+        try:
+            session = CourseSession.objects.get(id=session_id)
+            user = request.user
+            
+            # Verify user is enrolled in the course
+            if not session.course.enrollments.filter(order__user=user).exists():
+                return Response(
+                    {"detail": "You are not enrolled in this course."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Generate token (3600 seconds = 1 hour expiration)
+            token = ZegoCloudService.generate_token(
+                user_id=user.id,
+                room_id=session.zego_room_id,
+                role='user',  # Always participant role for users
+                expired_in=3600
+            )
+            
+            # Record participant
+            SessionParticipant.objects.get_or_create(
+                session=session,
+                user=user,
+                defaults={'joined_at': timezone.now()}
+            )
+            
+            return Response({
+                "room_id": session.zego_room_id,
+                "token": token,
+                "role": 'user',
+                "user_id": str(user.id),
+                "user_name": user.get_full_name() or user.username
+            })
+            
+        except CourseSession.DoesNotExist:
+            return Response(
+                {"detail": "Session not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )

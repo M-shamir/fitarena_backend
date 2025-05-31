@@ -1,9 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.contrib.auth import authenticate 
+from django.contrib.auth import authenticate
+from django.utils import timezone
+from datetime import datetime, timedelta 
 from account_app.serializers import BaseSignUpSerializer,LoginSerializer,BaseProfileSerializer
-from .models import Language,TrainerType,TrainerProfile,TrainerCource
+from .models import Language,TrainerType,TrainerProfile,TrainerCource,CourseSession,SessionParticipant
+from orders.models import    CourseEnrollment
 
 User =  get_user_model()
 
@@ -145,3 +148,34 @@ class TrainerProfileSerializer(serializers.ModelSerializer):
             instance.languages_spoken.set(languages)
 
         return super().update(instance, validated_data)
+
+class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='course.id')
+    title = serializers.CharField(source='course.title')
+    enrolled_users_count = serializers.SerializerMethodField()
+    upcoming_sessions_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CourseEnrollment
+        fields = ['id', 'title', 'enrolled_users_count', 'upcoming_sessions_count']
+
+    def get_enrolled_users_count(self, obj):
+        return CourseEnrollment.objects.filter(course=obj.course, is_cancelled=False).count()
+
+    def get_upcoming_sessions_count(self, obj):
+        # Use session_date and current date for filtering upcoming sessions
+        return CourseSession.objects.filter(
+            course=obj.course,
+            session_date__gte=timezone.now().date(),
+            is_completed=False
+        ).count()
+
+class EnrolledUserSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='order.user.id')
+    name = serializers.CharField(source='order.user.get_full_name')
+    email = serializers.CharField(source='order.user.email')
+    enrolled_at = serializers.DateTimeField()
+
+    class Meta:
+        model = CourseEnrollment
+        fields = ['id', 'name', 'email', 'enrolled_at']

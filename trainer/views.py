@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.permission import IsTrainer
 from rest_framework.views import APIView
-from .serializers import TrainerSerializer,TrainerTypeSerializer,LanguageSerializer,TrainerCourceSerializer,TrainerProfileSerializer
+from .serializers import *
 from services.email_service import send_otp_email
 from services.otp_service import generate_otp,store_otp
 from django.core.cache import  cache
@@ -19,8 +19,21 @@ from rest_framework.permissions import AllowAny
 from .services.course_service import TrainerCourseService
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.generics import DestroyAPIView
-
+from .models import TrainerCource, CourseSession, SessionParticipant
+from django.db.models import Count, Q
+from .services.zego_service import ZegoCloudService
+from orders.models import CourseEnrollment
+from django.utils import timezone
+from datetime import datetime, timedelta
 import logging
+from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
+from rest_framework import status
+import time
+import hashlib
+import hmac
+
+
 
 
 # Create your views here.
@@ -268,3 +281,158 @@ class TrainerPendingEditView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+
+class TrainerCourseEnrollmentsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            trainer_profile = request.user.trainer_profile
+        except TrainerProfile.DoesNotExist:
+            return Response(
+                {"detail": "Trainer profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        courses = TrainerCource.objects.filter(
+            trainer=trainer_profile
+        ).annotate(
+            enrolled_users_count=Count(
+                'enrollments',
+                filter=Q(enrollments__is_cancelled=False)
+            ),
+            upcoming_sessions_count=Count(
+                'sessions',
+                filter=Q(sessions__session_date__gte=timezone.now().date(),
+                        sessions__is_completed=False)
+            )
+        )
+        
+        data = [{
+            'id': course.id,
+            'title': course.title,
+            'enrolled_users_count': course.enrolled_users_count,
+            'upcoming_sessions_count': course.upcoming_sessions_count
+        } for course in courses]
+        
+        return Response(data, status=status.HTTP_200_OK)
+    
+class CourseEnrolledUsersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id):
+        # Get the trainer profile for the current user
+        try:
+            trainer_profile = request.user.trainer_profile
+        except TrainerProfile.DoesNotExist:
+            return Response(
+                {"detail": "Trainer profile not found."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Verify the course belongs to this trainer
+        course = get_object_or_404(
+            TrainerCource,
+            id=course_id,
+            trainer=trainer_profile
+        )
+
+        # Get all active enrollments for this course
+        enrollments = CourseEnrollment.objects.filter(
+            course=course,
+            is_cancelled=False
+        ).select_related('order__user').order_by('-enrolled_at')
+
+        serializer = EnrolledUserSerializer(enrollments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+
+class TrainerLiveSessionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            trainer_profile = request.user.trainer_profile
+        except TrainerProfile.DoesNotExist:
+            return Response(
+                {"detail": "Trainer profile not found."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        today = timezone.now().date()
+        sessions = CourseSession.objects.filter(
+            course__trainer=trainer_profile,
+            session_date=today,
+            is_completed=False
+        ).annotate(
+            participants_count=Count('participants')
+        ).select_related('course').order_by('started_at')
+
+        data = [{
+            "id": session.id,
+            "course_id": session.course.id,
+            "course_title": session.course.title,
+            "session_date": session.session_date,
+            "start_time": session.started_at.time() if session.started_at else session.course.start_time,
+            "zego_room_id": session.zego_room_id,
+            "zego_token": session.zego_token,
+            "participants_count": session.participants_count
+        } for session in sessions]
+
+        return Response(data, status=status.HTTP_200_OK)
+
+class JoinSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id):
+        try:
+            session = CourseSession.objects.get(id=session_id)
+            user = request.user
+            
+            # Check if user is trainer or participant
+            is_trainer = hasattr(user, 'trainer_profile') and user.trainer_profile == session.course.trainer
+            role = 'host' if is_trainer else 'user'
+            
+            # Generate token (3600 seconds = 1 hour expiration)
+            token = ZegoCloudService.generate_token(
+                user_id=user.id,
+                room_id=session.zego_room_id,
+                role=role,
+                expired_in=3600  # 1 hour expiration
+            )
+            
+            # Update session if trainer is joining for the first time
+            if is_trainer and not session.started_at:
+                session.started_at = timezone.now()
+                session.zego_token = token
+                session.save()
+            
+            # Record participant if not trainer
+            if not is_trainer:
+                SessionParticipant.objects.get_or_create(
+                    session=session,
+                    user=user,
+                    defaults={'joined_at': timezone.now()}
+                )
+            
+            return Response({
+                "room_id": session.zego_room_id,
+                "token": token,
+                "role": role,
+                "user_id": str(user.id),
+                "user_name": user.get_full_name() or user.username
+            })
+            
+        except CourseSession.DoesNotExist:
+            return Response(
+                {"detail": "Session not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
