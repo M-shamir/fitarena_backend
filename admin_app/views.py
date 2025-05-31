@@ -17,6 +17,7 @@ from core.permission import IsAdmin
 from trainer.models import TrainerProfile,TrainerCource
 from stadium_owner.models import StadiumOwnerProfile,Stadium
 from stadium_owner.serializers import StadiumSerializer
+from trainer.services.course_service import TrainerCourseService
 # Create your views here.
 
 User = get_user_model()
@@ -206,12 +207,24 @@ class ApproveTrainerCourceView(APIView):
         except TrainerCource.DoesNotExist:
             return Response({"error": "Pending course not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Update course status
         cource.status = "approved"
         cource.approval_status = "approved"
         cource.approval_note = request.data.get("approval_note", "")
         cource.save()
 
-        return Response({"message": "Trainer course approved successfully."}, status=status.HTTP_200_OK)
+        # Create sessions for the approved course
+        try:
+            TrainerCourseService.approve_course(cource.id)
+        except Exception as e:
+            # Log the error but don't fail the approval
+            # You might want to add proper logging here
+            print(f"Error creating sessions: {str(e)}")
+
+        return Response(
+            {"message": "Trainer course approved and sessions created successfully."},
+            status=status.HTTP_200_OK
+        )
 
 
 class RejectTrainerCourceView(APIView):

@@ -6,6 +6,7 @@ from orders.models import Order,CourseEnrollment,SlotBooking
 from .services.payment_service import PaymentService
 from stadium_owner.models import Slot
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
 class CreateCoursePaymentAPIView(APIView):
     permission_classes = [IsAuthenticated]

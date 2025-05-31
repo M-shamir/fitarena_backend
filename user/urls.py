@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignUpView,UserVerifyOtpView,UserResendOtpView,LoginView,UserForgotPasswordView,UserResetPasswordView,UserLogoutView,UserProfileView,NearbyStadiumsAPIView,StadiumDetailAPIView,AvailableTrainerAPIView,TrainerCoursesAPIView,CourseDetailAPIView,AvailableUpcomingSlotsAPIView,BookSlotsAPIView
+from .views import *
 
 urlpatterns =  [
     path('auth/signup',SignUpView.as_view(),name='signup'),
@@ -16,6 +16,8 @@ urlpatterns =  [
     path('stadiums/<int:pk>/', StadiumDetailAPIView.as_view(), name='stadium-detail'),
     path('stadiums/<int:stadium_id>/available-slots/', AvailableUpcomingSlotsAPIView.as_view(), name='available_slots'),
     path('stadiums/<int:stadium_id>/slots/book/', BookSlotsAPIView.as_view(), name='book_slots'),
-    path('logout/',UserLogoutView.as_view())
+    path('logout/',UserLogoutView.as_view()),
+    path('live-sessions/', UserLiveSessionsView.as_view(), name='user-live-sessions'),
+    path('sessions/<int:session_id>/join/', UserJoinSessionView.as_view(), name='user-join-session'),
     
 ]

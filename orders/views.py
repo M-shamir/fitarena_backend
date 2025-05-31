@@ -35,3 +35,5 @@ class UserBookingsView(generics.GenericAPIView):
             'course_enrollments': course_serializer.data,
             'slot_bookings': slot_serializer.data
         })
+    
+

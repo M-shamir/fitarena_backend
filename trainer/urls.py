@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import TrainerSignUpView,TrainerVerifyOtpView,TrainerResendOtpView,TrainerLoginView,TrainerTypeListView,LanguageListView,TrainerLogoutView,TrainerProfileView,TrainerForgotPassword,TrainerResetPasswordView,TrainerCreateCourceView,PendingApprovalSessionsView,TrainerTypesView,ApprovedSessionsView,DeleteTrainerCourceView,TrainerPendingEditView
+from .views import *
 urlpatterns =  [
     path('auth/signup',TrainerSignUpView.as_view(),name='signup'),
     path('auth/verifyotp',TrainerVerifyOtpView.as_view(),name='verifyotp'),
@@ -17,6 +17,11 @@ urlpatterns =  [
     path('trainer-cources/<int:pk>/',DeleteTrainerCourceView.as_view(),name='delete-trainer-course'),
     path('trainer-cources/<int:pk>/edit/',TrainerPendingEditView.as_view(),name='editpendingcource'),
     path('logout/',TrainerLogoutView.as_view()),
+    path('courses/enrollments/', TrainerCourseEnrollmentsView.as_view(), name='trainer-course-enrollments'),
+    path('courses/<int:course_id>/enrolled-users/', CourseEnrolledUsersView.as_view(),name='course-enrolled-users'),
+    path('live-sessions/', TrainerLiveSessionsView.as_view(), name='trainer-live-sessions'),
+    path('sessions/<int:session_id>/join/', JoinSessionView.as_view(), name='join-session'),
+   
 
     
 ]

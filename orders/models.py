@@ -28,6 +28,15 @@ class CourseEnrollment(models.Model):
     is_cancelled = models.BooleanField(default=False)
     cancelled_at = models.DateTimeField(blank=True, null=True)
 
+    class Meta:
+        ordering = ['-enrolled_at']
+        indexes = [
+            models.Index(fields=['course', 'is_cancelled']),
+        ]
+
+    def __str__(self):
+        return f"{self.order.user.email} - {self.course.title}"
+
 class SlotBooking(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='slot_bookings')
     slot = models.ForeignKey(Slot, on_delete=models.PROTECT)
