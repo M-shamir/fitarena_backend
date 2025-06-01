@@ -21,6 +21,9 @@ urlpatterns =  [
     path('courses/<int:course_id>/enrolled-users/', CourseEnrolledUsersView.as_view(),name='course-enrolled-users'),
     path('live-sessions/', TrainerLiveSessionsView.as_view(), name='trainer-live-sessions'),
     path('sessions/<int:session_id>/join/', JoinSessionView.as_view(), name='join-session'),
+    path('dashboard/stats/', DashboardStatsAPIView.as_view(), name='dashboard-stats'),
+    path('payment-history/', TrainerPaymentHistoryAPIView.as_view(), name='trainer-payment-history'),
+    
    
 
     

@@ -26,7 +26,10 @@ from orders.models import CourseEnrollment
 from django.utils import timezone
 from datetime import datetime, timedelta
 import logging
+from orders.models import *
 from django.shortcuts import get_object_or_404
+from django.db.models import Count, Sum, Q
+import datetime
 from rest_framework.response import Response
 from rest_framework import status
 import time
@@ -436,3 +439,155 @@ class JoinSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
+
+
+class DashboardStatsAPIView(APIView):
+    def get(self, request, format=None):
+        # Get current date and time
+        now = timezone.now()
+        today = now.date()
+        last_month = today - timedelta(days=30)
+        
+        stats = {
+            'total_clients': self.get_total_clients(),
+            'upcoming_sessions': self.get_upcoming_sessions(),
+            'active_plans': self.get_active_plans(),
+            'revenue': self.get_revenue(),
+            'clients_change': self.get_clients_change(last_month, today),
+            'sessions_today': self.get_sessions_today(today),
+            'plans_change': self.get_plans_change(last_month, today),
+            'revenue_change': self.get_revenue_change(last_month, today)
+        }
+        return Response(stats, status=status.HTTP_200_OK)
+    
+    def get_total_clients(self):
+        """Count unique users with active enrollments"""
+        return CourseEnrollment.objects.filter(is_cancelled=False)\
+                                      .values('order__user')\
+                                      .distinct()\
+                                      .count()
+    
+    def get_upcoming_sessions(self):
+        """Count upcoming sessions (not completed, date >= today)"""
+        return CourseSession.objects.filter(
+            session_date__gte=timezone.now().date(),
+            is_completed=False
+        ).count()
+    
+    def get_active_plans(self):
+        """Count active enrollments (not cancelled)"""
+        return CourseEnrollment.objects.filter(is_cancelled=False).count()
+    
+    def get_revenue(self):
+        """Sum of all successful orders"""
+        result = Order.objects.filter(status='completed')\
+                             .aggregate(total=Sum('amount'))
+        return result['total'] or 0
+    
+    def get_clients_change(self, last_month, today):
+        """Calculate client count change compared to last month"""
+        # Count clients who enrolled before last month
+        old_count = CourseEnrollment.objects.filter(
+            enrolled_at__lt=last_month,
+            is_cancelled=False
+        ).values('order__user').distinct().count()
+        
+        # Count current clients
+        current_count = self.get_total_clients()
+        
+        # Calculate percentage change (avoid division by zero)
+        if old_count == 0:
+            return 100 if current_count > 0 else 0
+        return ((current_count - old_count) / old_count) * 100
+    
+    def get_sessions_today(self, today):
+        """Count sessions scheduled for today"""
+        return CourseSession.objects.filter(
+            session_date=today,
+            is_completed=False
+        ).count()
+    
+    def get_plans_change(self, last_month, today):
+        """Calculate active plans change compared to last month"""
+        # Count active plans from last month
+        old_count = CourseEnrollment.objects.filter(
+            enrolled_at__lt=last_month,
+            is_cancelled=False
+        ).count()
+        
+        # Count current active plans
+        current_count = self.get_active_plans()
+        
+        # Calculate absolute change
+        return current_count - old_count
+    
+    def get_revenue_change(self, last_month, today):
+        """Calculate revenue change compared to last month"""
+        # Revenue from last month
+        old_revenue = Order.objects.filter(
+            status='completed',
+            created_at__range=(last_month, today - timedelta(days=30))
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Current month revenue
+        current_revenue = Order.objects.filter(
+            status='completed',
+            created_at__gte=today - timedelta(days=30)
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Calculate percentage change (avoid division by zero)
+        if old_revenue == 0:
+            return 100 if current_revenue > 0 else 0
+        return ((current_revenue - old_revenue) / old_revenue) * 100
+
+class TrainerPaymentHistoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get the trainer profile of the logged-in user
+        trainer_profile = request.user.trainer_profile
+        
+        # Calculate date ranges
+        today = timezone.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+        start_of_month = today.replace(day=1)
+        
+        # Get all successful payments for this trainer's courses
+        successful_orders = Order.objects.filter(
+            course_enrollment__course__trainer=trainer_profile,
+            status='completed'
+        ).select_related('course_enrollment__course')
+        
+        # Calculate earnings
+        weekly_earnings = successful_orders.filter(
+            created_at__date__gte=start_of_week
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        monthly_earnings = successful_orders.filter(
+            created_at__date__gte=start_of_month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Prepare the payment history data
+        payment_history = []
+        for order in successful_orders.order_by('-created_at'):
+            payment_history.append({
+                'id': order.id,
+                'course_title': order.course_enrollment.course.title,
+                'student_email': order.user.email,
+                'amount': float(order.amount),
+                'currency': order.currency,
+                'payment_date': order.created_at,
+                'course_id': order.course_enrollment.course.id
+            })
+        
+        response_data = {
+            'payment_history': payment_history,
+            'earnings_summary': {
+                'this_week': float(weekly_earnings),
+                'this_month': float(monthly_earnings),
+                'all_time': float(successful_orders.aggregate(total=Sum('amount'))['total'] or 0)
+            }
+        }
+        
+        return Response(response_data)

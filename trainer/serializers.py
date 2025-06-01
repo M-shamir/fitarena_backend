@@ -179,3 +179,65 @@ class EnrolledUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseEnrollment
         fields = ['id', 'name', 'email', 'enrolled_at']
+
+class TrainerStatsSerializer(serializers.Serializer):
+    total_sessions = serializers.IntegerField()
+    active_clients = serializers.IntegerField()
+    upcoming_sessions_today = serializers.IntegerField()
+    total_revenue = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+class UpcomingSessionSerializer(serializers.ModelSerializer):
+    client = serializers.SerializerMethodField()
+    time = serializers.SerializerMethodField()
+    type = serializers.CharField(source='course.title')
+    
+    class Meta:
+        model = CourseSession
+        fields = ['id', 'client', 'time', 'type']
+    
+    def get_client(self, obj):
+        enrollments = obj.course.enrollments.filter(is_cancelled=False)
+        if enrollments.exists():
+            return enrollments.first().order.user.get_full_name()
+        return "No clients enrolled"
+    
+    def get_time(self, obj):
+        return f"{obj.course.start_time.strftime('%I:%M %p')} - {obj.course.end_time.strftime('%I:%M %p')}"
+
+class RecentClientSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    last_session = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CourseEnrollment
+        fields = ['id', 'name', 'last_session', 'progress']
+    
+    def get_name(self, obj):
+        return obj.order.user.get_full_name()
+    
+    def get_last_session(self, obj):
+        last_session = CourseSession.objects.filter(
+            course=obj.course,
+            is_completed=True
+        ).order_by('-session_date').first()
+        
+        if last_session:
+            delta = timezone.now().date() - last_session.session_date
+            return f"{delta.days} days ago"
+        return "No sessions yet"
+    
+    def get_progress(self, obj):
+        # This would need actual progress tracking logic
+        return "+5%"
+
+class QuickActionSerializer(serializers.Serializer):
+    actions = serializers.SerializerMethodField()
+    
+    def get_actions(self, obj):
+        return [
+            {'id': 1, 'name': 'Add Session', 'icon': 'add'},
+            {'id': 2, 'name': 'Add Client', 'icon': 'user'},
+            {'id': 3, 'name': 'Create Plan', 'icon': 'document'},
+            {'id': 4, 'name': 'Nutrition Plan', 'icon': 'nutrition'}
+        ]

@@ -455,3 +455,4 @@ class PastCoursesView(generics.ListAPIView):
             'course__trainer',
             'course__trainer__user'
         ).order_by('-cancelled_at', '-course__end_date')
+    
