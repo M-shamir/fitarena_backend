@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import UserSerializer,TrainerCourceSerializer,TrainerProfileSerializer,TrainerTypeSerializer,StadiumSerializer,SlotSerializer
+from .serializers import *
 from django.utils import timezone
 from rest_framework import generics
 from services.email_service import send_otp_email
@@ -27,8 +27,10 @@ from django.utils.timezone import now
 from django.db.models import Sum
 from django.conf import settings
 from trainer.models import *
+from orders.models import *
 from trainer.services.zego_service import ZegoCloudService
 import logging
+from django.db.models import Q
 
 
 
@@ -383,3 +385,73 @@ class UserJoinSessionView(APIView):
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+
+class UserEnrolledCoursesView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserEnrolledCourseSerializer
+
+    def get_queryset(self):
+        # Get only active enrollments for courses that haven't started yet
+        today = timezone.now().date()
+        return CourseEnrollment.objects.filter(
+            order__user=self.request.user,
+            is_cancelled=False,
+            course__start_date__gt=today
+        ).select_related('course', 'course__trainer', 'course__trainer__user')
+    
+
+class CancelCourseEnrollmentView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = CourseEnrollment.objects.all()
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check if the requesting user owns this enrollment
+        if instance.order.user != request.user:
+            return Response(
+                {"detail": "You don't have permission to cancel this enrollment."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if the course hasn't started yet
+        today = timezone.now().date()
+        if instance.course.start_date <= today:
+            return Response(
+                {"detail": "Cannot cancel enrollment after the course has started."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Cancel the enrollment
+        instance.is_cancelled = True
+        instance.cancelled_at = timezone.now()
+        instance.save()
+        
+        return Response(
+            {"detail": "Course enrollment cancelled successfully."},
+            status=status.HTTP_200_OK
+        )
+    
+
+
+class PastCoursesView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PastCourseSerializer
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        return CourseEnrollment.objects.filter(
+            Q(order__user=self.request.user),
+            Q(is_cancelled=True) |  # Cancelled courses
+            Q(  # Completed courses
+                is_cancelled=False,
+                course__end_date__lt=today
+            )
+        ).select_related(
+            'course',
+            'course__trainer',
+            'course__trainer__user'
+        ).order_by('-cancelled_at', '-course__end_date')

@@ -19,5 +19,7 @@ urlpatterns =  [
     path('logout/',UserLogoutView.as_view()),
     path('live-sessions/', UserLiveSessionsView.as_view(), name='user-live-sessions'),
     path('sessions/<int:session_id>/join/', UserJoinSessionView.as_view(), name='user-join-session'),
-    
+    path('enrolled-courses/', UserEnrolledCoursesView.as_view(), name='user-enrolled-courses'),
+    path('enrolled-courses/<int:id>/cancel/', CancelCourseEnrollmentView.as_view(), name='cancel-course-enrollment'),
+    path('past-courses/', PastCoursesView.as_view(), name='past-courses'),
 ]

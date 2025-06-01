@@ -3,9 +3,10 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.contrib.auth import authenticate 
 from account_app.serializers import BaseSignUpSerializer,LoginSerializer
-from trainer.models import TrainerProfile,TrainerCource,TrainerType,Language
+from trainer.models import *
 from stadium_owner.models import *
 from orders.models import *
+from django.utils import timezone
 
 User =  get_user_model()
 
@@ -92,3 +93,49 @@ class StadiumSerializer(serializers.ModelSerializer):
         return None
 
 
+class UserEnrolledCourseSerializer(serializers.ModelSerializer):
+    course_id = serializers.IntegerField(source='course.id')
+    title = serializers.CharField(source='course.title')
+    trainer_name = serializers.CharField(source='course.trainer.user.username')
+    start_date = serializers.DateField(source='course.start_date')
+    end_date = serializers.DateField(source='course.end_date')
+    start_time = serializers.TimeField(source='course.start_time')
+    end_time = serializers.TimeField(source='course.end_time')
+    price = serializers.DecimalField(source='course.price', max_digits=8, decimal_places=2)
+    can_cancel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CourseEnrollment
+        fields = ['id', 'course_id', 'title', 'trainer_name', 'start_date', 
+                 'end_date', 'start_time', 'end_time', 'price', 'can_cancel']
+
+    def get_can_cancel(self, obj):
+        # Course can be canceled if it hasn't started yet
+        
+        today = timezone.now().date()
+        return obj.course.start_date > today
+    
+class PastCourseSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    course_id = serializers.IntegerField(source='course.id')
+    title = serializers.CharField(source='course.title')
+    trainer_name = serializers.CharField(source='course.trainer.user.username')
+    start_date = serializers.DateField(source='course.start_date')
+    end_date = serializers.DateField(source='course.end_date')
+    sessions_completed = serializers.SerializerMethodField()
+    cancelled_at = serializers.DateTimeField()
+
+    class Meta:
+        model = CourseEnrollment
+        fields = [
+            'id', 'course_id', 'title', 'trainer_name', 'status',
+            'start_date', 'end_date', 'sessions_completed', 'cancelled_at'
+        ]
+
+    def get_status(self, obj):
+        return "cancelled" if obj.is_cancelled else "completed"
+
+    def get_sessions_completed(self, obj):
+        if obj.is_cancelled:
+            return 0
+        return obj.course.sessions.filter(is_completed=True).count()
