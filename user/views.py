@@ -456,3 +456,68 @@ class PastCoursesView(generics.ListAPIView):
             'course__trainer__user'
         ).order_by('-cancelled_at', '-course__end_date')
     
+class UserUpcomingSlotBookingsAPI(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SlotSerializer
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        current_time = timezone.now().time()
+        
+        # Get all upcoming slot bookings for the authenticated user
+        upcoming_bookings = SlotBooking.objects.filter(
+            order__user=self.request.user,
+            is_cancelled=False
+        ).select_related(
+            'slot',
+            'slot__stadium',  # Assuming Slot has a stadium ForeignKey
+            'order'
+        ).order_by('booking_date', 'slot__start_time')
+        
+        # Filter slots that are either:
+        # 1. On future dates, OR
+        # 2. On today's date but with start time in the future
+        slot_ids = []
+        for booking in upcoming_bookings:
+            if booking.booking_date > today:
+                slot_ids.append(booking.slot.id)
+            elif booking.booking_date == today and booking.slot.start_time > current_time:
+                slot_ids.append(booking.slot.id)
+        
+        return Slot.objects.filter(id__in=slot_ids).select_related('stadium').order_by('date', 'start_time')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        # Get all bookings for these slots in one query
+        bookings = SlotBooking.objects.filter(
+            slot__in=queryset,
+            order__user=request.user,
+            is_cancelled=False
+        ).select_related('slot', 'slot__stadium', 'order')
+        
+        # Create a mapping of slot ID to booking
+        booking_map = {booking.slot_id: booking for booking in bookings}
+        
+        # Combine slot data with booking info
+        data = []
+        for slot_data in serializer.data:
+            booking = booking_map.get(slot_data['id'])
+            if booking:
+                slot_data['booking_id'] = booking.id
+                slot_data['booking_date'] = booking.booking_date
+                slot_data['booked_at'] = booking.booked_at
+                slot_data['status'] = 'booked'
+                
+                # Add stadium information from the slot
+                if hasattr(booking.slot, 'stadium'):
+                    slot_data['stadium_name'] = booking.slot.stadium.name
+                    if booking.slot.stadium.image:
+                        slot_data['stadium_image'] = request.build_absolute_uri(
+                            booking.slot.stadium.image.url
+                        ) if booking.slot.stadium.image else None
+                
+                data.append(slot_data)
+        
+        return Response(data)
