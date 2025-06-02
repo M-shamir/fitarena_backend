@@ -139,3 +139,11 @@ class PastCourseSerializer(serializers.ModelSerializer):
         if obj.is_cancelled:
             return 0
         return obj.course.sessions.filter(is_completed=True).count()
+    
+
+class SlotBookingSerializer(serializers.ModelSerializer):
+    slot = SlotSerializer()
+    
+    class Meta:
+        model = SlotBooking
+        fields = ['id', 'slot', 'booking_date', 'booked_at']
