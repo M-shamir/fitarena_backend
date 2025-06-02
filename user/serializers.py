@@ -141,9 +141,61 @@ class PastCourseSerializer(serializers.ModelSerializer):
         return obj.course.sessions.filter(is_completed=True).count()
     
 
-class SlotBookingSerializer(serializers.ModelSerializer):
-    slot = SlotSerializer()
-    
+
+
+class UserSlotSerializer(serializers.ModelSerializer):
+    stadium_name      = serializers.CharField(source='stadium.name', read_only=True)
+    stadium_image     = serializers.SerializerMethodField()
+    slotbooking_id    = serializers.SerializerMethodField()   # ← new field
+
     class Meta:
-        model = SlotBooking
-        fields = ['id', 'slot', 'booking_date', 'booked_at']
+        model = Slot
+        fields = [
+            'id',
+            'date',
+            'start_time',
+            'end_time',
+            'price',
+            'status',
+            'stadium',
+            'stadium_name',
+            'stadium_image',
+            'slotbooking_id',                      # ← include it here
+        ]
+
+    def get_stadium_image(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return None
+
+        if obj.stadium and obj.stadium.image:
+            try:
+                return request.build_absolute_uri(obj.stadium.image.url)
+            except:
+                return None
+        return None
+
+    def get_slotbooking_id(self, obj):
+        """
+        Return the SlotBooking.id for this slot (and current user),
+        or None if none exists.
+        """
+        request = self.context.get('request', None)
+        if not request:
+            return None
+
+        user = request.user
+        try:
+            # Find the (non‐cancelled) SlotBooking for this slot + user
+            booking = SlotBooking.objects.get(
+                slot=obj,
+                order__user=user,
+                is_cancelled=False
+            )
+            return booking.id
+        except SlotBooking.DoesNotExist:
+            return None
+    
+class UserCurrentNextSlotSerializer(serializers.Serializer):
+    ongoing = UserSlotSerializer(required=False)
+    upcoming = UserSlotSerializer(required=False)

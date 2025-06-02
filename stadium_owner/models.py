@@ -1,6 +1,7 @@
 from django.contrib.gis.db import models
 from django.conf import settings
 from django.contrib.gis.db import models as gis_models
+from django.utils import timezone
 
 
 
@@ -92,3 +93,10 @@ class Slot(models.Model):
 
     def __str__(self):
         return f"{self.stadium.name} | {self.date} | {self.start_time}-{self.end_time}"
+    
+    def cancel_booking(self, reason=None):
+        self.status = 'available'
+        self.booked_by = None
+        self.cancellation_reason = reason
+        self.cancellation_time = timezone.now()
+        self.save()

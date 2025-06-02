@@ -464,21 +464,157 @@ class PastCoursesView(generics.ListAPIView):
 
 
 class UserUpcomingSlotBookingsAPI(generics.ListAPIView):
-    serializer_class = SlotSerializer
+    serializer_class = UserSlotSerializer
 
     def get_queryset(self):
         user = self.request.user
         now = timezone.now()
         cutoff = now + timedelta(hours=1)
-        today = now.date()
 
-        # Filter slots booked by user, status booked
         return Slot.objects.filter(
             booked_by=user,
             status='booked'
         ).filter(
-            # Slots with date after today are automatically included
+            Q(date__gt=cutoff.date()) |
+            Q(date=cutoff.date(), start_time__gte=cutoff.time())
+        ).select_related('stadium')
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+
+class UserCurrentAndNextSlotBookingsAPI(generics.ListAPIView):
+    serializer_class = UserSlotSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        now = timezone.now()
+        current_time = now.time()
+        today = now.date()
+
+        queryset = Slot.objects.filter(
+            booked_by=user,
+            status='booked'
+        ).filter(
             Q(date__gt=today) |
-            # For slots today, only show if start_time >= cutoff time
-            Q(date=today, start_time__gte=cutoff.time())
-        )
+            Q(date=today, end_time__gte=current_time)
+        ).select_related('stadium').order_by('date', 'start_time')
+
+        # Debugging: Print the raw query and results
+        print(queryset.query)
+        print(list(queryset.values('id', 'date', 'start_time', 'end_time')))
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        now = timezone.now()
+        current_time = now.time()
+        today = now.date()
+
+        ongoing_slot = None
+        upcoming_slot = None
+
+        for slot in queryset:
+            print(f"Checking slot {slot.id}: {slot.date} {slot.start_time}-{slot.end_time}")
+            
+            # Check if slot is ongoing
+            if (slot.date == today and 
+                slot.start_time <= current_time <= slot.end_time):
+                print("Found ongoing slot")
+                ongoing_slot = slot
+                continue
+            
+            # If we have an ongoing slot, find the next one after it
+            if ongoing_slot:
+                if (slot.date > ongoing_slot.date or 
+                    (slot.date == ongoing_slot.date and slot.start_time > ongoing_slot.end_time)):
+                    print("Found upcoming slot after ongoing")
+                    upcoming_slot = slot
+                    break
+            else:
+                # If no ongoing slot, the first future slot is the upcoming one
+                if (slot.date > today or 
+                    (slot.date == today and slot.start_time > current_time)):
+                    print("Found upcoming slot (no ongoing)")
+                    upcoming_slot = slot
+                    break
+
+        result = {
+            'ongoing': ongoing_slot,
+            'upcoming': upcoming_slot
+        }
+
+        print(f"Final result: {result}")
+        serializer = UserCurrentNextSlotSerializer(result, context={'request': request})
+        return Response(serializer.data)
+    
+class UserPastSlotBookingsAPI(generics.ListAPIView):
+    serializer_class = UserSlotSerializer
+    queryset = Slot.objects.none()  # Default empty queryset
+
+    def get_queryset(self):
+        user = self.request.user
+        now = timezone.now()
+        current_time = now.time()
+        today = now.date()
+
+        # Get all truly past bookings (completely finished)
+        return Slot.objects.filter(
+            booked_by=user,
+            status='booked'
+        ).filter(
+            Q(date__lt=today) |  # All slots from previous days
+            Q(date=today, end_time__lt=current_time)  # Today's slots that have completely ended
+        ).exclude(
+            Q(date=today, start_time__lte=current_time, end_time__gte=current_time)  # Exclude ongoing slot
+        ).select_related('stadium').order_by('-date', '-end_time')  # Most recent first
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+
+class CancelSlotBookingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, booking_id):
+        try:
+            # Get the booking
+            booking = get_object_or_404(
+                SlotBooking, 
+                id=booking_id,          # This should be the SlotBooking ID (14 in your case)
+                order__user=request.user,
+                is_cancelled=False
+            )
+            
+            # Get the associated slot
+            slot = booking.slot
+            
+            # Update booking status
+            booking.is_cancelled = True
+            booking.cancelled_at = timezone.now()
+            booking.save()
+            
+            # Update slot status
+            slot.status = 'available'
+            slot.booked_by = None
+            slot.save()
+            
+            # Update order status
+            booking.order.status = 'cancelled'
+            booking.order.save()
+            
+            return Response(
+                {"detail": "Booking cancelled successfully."},
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )

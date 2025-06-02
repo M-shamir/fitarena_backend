@@ -23,4 +23,7 @@ urlpatterns =  [
     path('enrolled-courses/<int:id>/cancel/', CancelCourseEnrollmentView.as_view(), name='cancel-course-enrollment'),
     path('past-courses/', PastCoursesView.as_view(), name='past-courses'),
     path('upcoming-slots/', UserUpcomingSlotBookingsAPI.as_view(), name='user-upcoming-slot-bookings'),
+    path('current-next/', UserCurrentAndNextSlotBookingsAPI.as_view(), name='user-current-next-slots'),
+    path('slots/past/', UserPastSlotBookingsAPI.as_view(), name='user-past-slots'),
+    path('bookings/<int:booking_id>/cancel/', CancelSlotBookingView.as_view(), name='cancel-slot-booking'),
 ]
