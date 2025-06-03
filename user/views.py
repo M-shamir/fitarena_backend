@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import *
+from datetime import date, timedelta
 from django.utils import timezone
 from datetime import datetime
 from django.db.models import DateTimeField, ExpressionWrapper, F, Func
@@ -188,20 +189,23 @@ class TrainerCoursesAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Get today's date and add 1 day (tomorrow)
+        tomorrow = date.today() + timedelta(days=1)
+
         courses = TrainerCource.objects.filter(
             trainer=trainer,
             approval_status='approved',
-            is_deleted=False
+            is_deleted=False,
+            start_date__gte=tomorrow  # Filter only future courses
         ).select_related('trainer', 'trainer_type')\
          .prefetch_related(
             'trainer__trainer_type', 
             'trainer__languages_spoken',
-            'enrollments'  # Prefetch enrollments for counting
+            'enrollments'
          )
 
         serializer = TrainerCourceSerializer(courses, many=True, context={'request': request})
         
-        # Add enrollment info to each course in response
         response_data = serializer.data
         for course_data, course_obj in zip(response_data, courses):
             course_data['available_slots'] = course_obj.available_slots
