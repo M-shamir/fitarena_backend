@@ -1,9 +1,12 @@
 from rest_framework import serializers
 from account_app.serializers import BaseSignUpSerializer
 from django.contrib.gis.geos import Point
-from .models import StadiumOwnerProfile,Stadium,Slot
+from .models import *
+from orders.models import *
 from datetime import datetime, time
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 class StadiumOwnerSignUpSerializer(BaseSignUpSerializer):
     phone_number = serializers.CharField(max_length=15)
     document = serializers.FileField(required=False)
@@ -63,4 +66,32 @@ class SlotCreateSerializer(serializers.Serializer):
 class SlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = Slot
-        fields = ['date', 'start_time', 'end_time', 'price', 'status']
+        fields = ['date','stadium', 'start_time', 'end_time', 'price', 'status']
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        
+class OrderSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'amount', 'status', 'created_at']
+
+class SlotBookingSerializer(serializers.ModelSerializer):
+    slot = SlotSerializer()
+    order = OrderSerializer()
+    
+    class Meta:
+        model = SlotBooking
+        fields = [
+            'id', 
+            'slot', 
+            'order', 
+            'booking_date', 
+            'booked_at', 
+            'is_cancelled', 
+            'cancelled_at'
+        ]

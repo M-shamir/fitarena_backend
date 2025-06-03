@@ -2,8 +2,8 @@ from django.contrib.gis.db import models
 from django.conf import settings
 from django.contrib.gis.db import models as gis_models
 from django.utils import timezone
-
-
+from django.contrib.auth import get_user_model 
+User = get_user_model() 
 
 class StadiumOwnerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="stadiumowner_profile")
@@ -100,3 +100,4 @@ class Slot(models.Model):
         self.cancellation_reason = reason
         self.cancellation_time = timezone.now()
         self.save()
+

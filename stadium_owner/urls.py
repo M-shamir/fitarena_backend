@@ -1,21 +1,5 @@
 from django.urls import path
-from .views import (
-  
-    StadiumOwnerSignUpView,
-    StadiumOwnerLoginView,
-    StadiumOwnerVerifyOtpView,
-    StadiumOwnerResendOtpView,
-    StadiumOwnerProfile, 
-    StadiumCreateView,
-    PendingStadiumListView,
-    StadiumOwnerEditPendingView,
-    StadiumSoftDeleteView,
-    StadiumOwnerLogoutView,
-    SlotCreateAPIView,
-    ApprovedStadiumsListView,
-    SlotListAPIView,
-    UnassignedStadiumsAPIView
-)
+from .views import *
 
 urlpatterns =  [
     path('auth/signup',StadiumOwnerSignUpView.as_view(),name='stadium_owner_signup'),
@@ -31,7 +15,8 @@ urlpatterns =  [
     path('approved-stadiums/', ApprovedStadiumsListView.as_view(), name='approved_stadiums'),
     path('slots/<int:stadium_id>/', SlotListAPIView.as_view(), name='slot-list'),
     path('stadiums/unassigned/', UnassignedStadiumsAPIView.as_view(), name='unassigned-stadiums'),
-
+    path('orders/', StadiumOwnerOrderListView.as_view(), name='stadium-owner-orders'),
+    path('payment-history/', StadiumOwnerPaymentHistoryAPIView.as_view(), name='stadium-owner-payment-history'),
     path('logout/',StadiumOwnerLogoutView.as_view()),
     
 ]
