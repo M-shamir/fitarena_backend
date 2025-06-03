@@ -196,7 +196,7 @@ class TrainerCoursesAPIView(APIView):
             trainer=trainer,
             approval_status='approved',
             is_deleted=False,
-            start_date__gte=tomorrow  # Filter only future courses
+            start_date__gte=tomorrow  
         ).select_related('trainer', 'trainer_type')\
          .prefetch_related(
             'trainer__trainer_type', 
@@ -244,7 +244,7 @@ class AvailableUpcomingSlotsAPIView(APIView):
         today = current_datetime.date()
         current_time = current_datetime.time()
 
-        # Get today's future slots
+
         today_slots = Slot.objects.filter(
             stadium_id=stadium_id,
             date=today,
@@ -252,7 +252,7 @@ class AvailableUpcomingSlotsAPIView(APIView):
             status='available'
         )
 
-        # Get future days' slots
+        
         future_slots = Slot.objects.filter(
             stadium_id=stadium_id,
             date__gt=today,
@@ -316,7 +316,7 @@ class UserLiveSessionsView(APIView):
             user = request.user
             today = timezone.now().date()
             
-            # Get sessions where user is enrolled and session is today
+           
             sessions = CourseSession.objects.filter(
                 course__enrollments__order__user=user,
                 session_date=today,
@@ -352,22 +352,22 @@ class UserJoinSessionView(APIView):
             session = CourseSession.objects.get(id=session_id)
             user = request.user
             
-            # Verify user is enrolled in the course
+            
             if not session.course.enrollments.filter(order__user=user).exists():
                 return Response(
                     {"detail": "You are not enrolled in this course."},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Generate token (3600 seconds = 1 hour expiration)
+           
             token = ZegoCloudService.generate_token(
                 user_id=user.id,
                 room_id=session.zego_room_id,
-                role='user',  # Always participant role for users
+                role='user',  
                 expired_in=3600
             )
             
-            # Record participant
+            
             SessionParticipant.objects.get_or_create(
                 session=session,
                 user=user,
@@ -400,7 +400,7 @@ class UserEnrolledCoursesView(generics.ListAPIView):
     serializer_class = UserEnrolledCourseSerializer
 
     def get_queryset(self):
-        # Get only active enrollments for courses that haven't started yet
+        
         today = timezone.now().date()
         return CourseEnrollment.objects.filter(
             order__user=self.request.user,
@@ -417,14 +417,14 @@ class CancelCourseEnrollmentView(generics.DestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         
-        # Check if the requesting user owns this enrollment
+        
         if instance.order.user != request.user:
             return Response(
                 {"detail": "You don't have permission to cancel this enrollment."},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Check if the course hasn't started yet
+       
         today = timezone.now().date()
         if instance.course.start_date <= today:
             return Response(
@@ -432,7 +432,7 @@ class CancelCourseEnrollmentView(generics.DestroyAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Cancel the enrollment
+       
         instance.is_cancelled = True
         instance.cancelled_at = timezone.now()
         instance.save()
@@ -452,8 +452,8 @@ class PastCoursesView(generics.ListAPIView):
         today = timezone.now().date()
         return CourseEnrollment.objects.filter(
             Q(order__user=self.request.user),
-            Q(is_cancelled=True) |  # Cancelled courses
-            Q(  # Completed courses
+            Q(is_cancelled=True) | 
+            Q(  
                 is_cancelled=False,
                 course__end_date__lt=today
             )
@@ -506,7 +506,7 @@ class UserCurrentAndNextSlotBookingsAPI(generics.ListAPIView):
             Q(date=today, end_time__gte=current_time)
         ).select_related('stadium').order_by('date', 'start_time')
 
-        # Debugging: Print the raw query and results
+        
         print(queryset.query)
         print(list(queryset.values('id', 'date', 'start_time', 'end_time')))
         
@@ -524,14 +524,14 @@ class UserCurrentAndNextSlotBookingsAPI(generics.ListAPIView):
         for slot in queryset:
             print(f"Checking slot {slot.id}: {slot.date} {slot.start_time}-{slot.end_time}")
             
-            # Check if slot is ongoing
+           
             if (slot.date == today and 
                 slot.start_time <= current_time <= slot.end_time):
                 print("Found ongoing slot")
                 ongoing_slot = slot
                 continue
             
-            # If we have an ongoing slot, find the next one after it
+           
             if ongoing_slot:
                 if (slot.date > ongoing_slot.date or 
                     (slot.date == ongoing_slot.date and slot.start_time > ongoing_slot.end_time)):
@@ -539,7 +539,7 @@ class UserCurrentAndNextSlotBookingsAPI(generics.ListAPIView):
                     upcoming_slot = slot
                     break
             else:
-                # If no ongoing slot, the first future slot is the upcoming one
+                
                 if (slot.date > today or 
                     (slot.date == today and slot.start_time > current_time)):
                     print("Found upcoming slot (no ongoing)")
@@ -557,7 +557,7 @@ class UserCurrentAndNextSlotBookingsAPI(generics.ListAPIView):
     
 class UserPastSlotBookingsAPI(generics.ListAPIView):
     serializer_class = UserSlotSerializer
-    queryset = Slot.objects.none()  # Default empty queryset
+    queryset = Slot.objects.none()  
 
     def get_queryset(self):
         user = self.request.user

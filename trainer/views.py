@@ -545,21 +545,21 @@ class TrainerPaymentHistoryAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get the trainer profile of the logged-in user
+        
         trainer_profile = request.user.trainer_profile
         
-        # Calculate date ranges
+        
         today = timezone.now().date()
         start_of_week = today - timedelta(days=today.weekday())
         start_of_month = today.replace(day=1)
         
-        # Get all successful payments for this trainer's courses
+       
         successful_orders = Order.objects.filter(
             course_enrollment__course__trainer=trainer_profile,
             status='completed'
         ).select_related('course_enrollment__course')
         
-        # Calculate earnings
+        
         weekly_earnings = successful_orders.filter(
             created_at__date__gte=start_of_week
         ).aggregate(total=Sum('amount'))['total'] or 0
@@ -568,7 +568,7 @@ class TrainerPaymentHistoryAPIView(APIView):
             created_at__date__gte=start_of_month
         ).aggregate(total=Sum('amount'))['total'] or 0
         
-        # Prepare the payment history data
+      
         payment_history = []
         for order in successful_orders.order_by('-created_at'):
             payment_history.append({
