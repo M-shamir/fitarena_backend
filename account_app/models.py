@@ -17,7 +17,9 @@ class User(AbstractUser):
     role = models.CharField(max_length=20,choices=ROLE_CHOICES)
     profile_photo  = models.ImageField(upload_to='profile/',default='test_uploads/profile-default.png')
     is_verified = models.BooleanField(default=False)
-    is_approved = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')  
+    is_approved = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending') 
+    google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    auth_provider = models.CharField(max_length=50, default='email')  # 'email' or 'google' 
     def __str__(self):
         return self.username
     

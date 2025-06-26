@@ -47,6 +47,75 @@ class  BaseSignupView(APIView):
 
             return response
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        google_id = request.data.get('google_id')
+        name = request.data.get('name')
+        
+        if not email or not google_id:
+            return Response({'error': 'Email and Google ID are required'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+            
+            
+            if user.auth_provider != 'google':
+                return Response({'error': 'Please login using your registered method'},
+                               status=status.HTTP_400_BAD_REQUEST)
+                               
+        except User.DoesNotExist:
+            # Create new user
+            username = email.split('@')[0]
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                google_id=google_id,
+                auth_provider='google',
+                is_verified=True,  # Skip email verification
+                role='user'
+            )
+            user.set_unusable_password()
+            user.save()
+        
+        # Generate tokens (same as your normal login)
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
+        access['role'] = user.role
+        
+        response = Response({
+            'refresh': str(refresh),
+            'access': str(access),
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role
+            }
+        }, status=status.HTTP_200_OK)
+        
+        # Set cookies (same as your normal login)
+        expires = datetime.utcnow() + timedelta(hours=2)
+        response.set_cookie(
+            'access_token', 
+            str(access),
+            httponly=True,
+            expires=expires,
+            samesite='Lax'
+        )
+        response.set_cookie(
+            'refresh_token',
+            str(refresh),
+            httponly=True,
+            expires=datetime.utcnow() + timedelta(days=7),
+            samesite='Lax'
+        )
+        
+        return response
 
 class BaseLoginView(APIView):
     permission_classes = [AllowAny]
