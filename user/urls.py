@@ -11,6 +11,7 @@ urlpatterns =  [
     path('forgot-password/',UserForgotPasswordView.as_view(),name='user-forgot-password'),
     path('reset-password/',UserResetPasswordView.as_view(),name='reset-password'),
     path('profile/',UserProfileView.as_view(),name='profile'),
+    path('profile/edit/', UserProfileEditView.as_view(), name='edit-user-profile'),
     path('trainers/available/', AvailableTrainerAPIView.as_view(), name='available-trainers'),
     path('trainers/<int:trainer_id>/courses/', TrainerCoursesAPIView.as_view(), name='trainer-courses'),
     path('courses/<int:course_id>/', CourseDetailAPIView.as_view(), name='course-detail'),

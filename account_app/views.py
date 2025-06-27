@@ -344,25 +344,27 @@ class BaseProfileView(APIView):
             
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
     
-    def patch(self,request,*args,**kwargs):
-        user=request.user
 
+class BaseProfileEditView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = BaseProfileSerializer
+    user_type = None
 
+    def patch(self, request, *args, **kwargs):
+        user = request.user
         try:
-            
-            
-            
-            user_role = access_token.get('role',None)
-
+            user_role = request.auth.get('role', None)
             if user_role != self.user_type:
                 return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
-            
-        
-            serializer  = self.serializer_class(trainer_profile,data=request.data,partial=True)
 
+            serializer = self.serializer_class(user, data=request.data, partial=True)
             if not serializer.is_valid():
-                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
             serializer.save()
-            return  Response({"message":"Profile Updated Successfully","user":serializer.data},status=status.HTTP_200_OK)
+            return Response({
+                "message": "Profile Updated Successfully",
+                "profile": serializer.data
+            }, status=status.HTTP_200_OK)
         except Exception as e:
-            return  Response({"error":str(e)},status = status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)

@@ -15,7 +15,7 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword,BaseLogoutView,BaseProfileView
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseForgotPassword,BaseResetPassword,BaseLogoutView,BaseProfileView,BaseProfileEditView
 from account_app.serializers import LoginSerializer,ForgotPasswordSerializer,ResetPasswordSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -74,6 +74,10 @@ class UserResetPasswordView(BaseResetPassword):
 
 class UserProfileView(BaseProfileView):
     user_type ='user'
+
+
+class UserProfileEditView(BaseProfileEditView):
+    user_type = 'user'
     
 
 class NearbyStadiumsAPIView(APIView):
