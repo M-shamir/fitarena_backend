@@ -208,7 +208,9 @@ LOGGING = {
     },
 }
 
-
+SEARCH_RADIUS_KM = int(os.getenv("SEARCH_RADIUS_KM", 50))
+ACCESS_TOKEN_EXPIRY_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRY_HOURS", 2))
+REFRESH_TOKEN_EXPIRY_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRY_DAYS", 7))
 
 
 # AWS Credentials

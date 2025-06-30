@@ -148,7 +148,7 @@ class BaseLoginView(APIView):
             }
         }, status=status.HTTP_200_OK)
 
-        expires = datetime.utcnow() + timedelta(hours=2)
+        expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRY_HOURS)
 
         response.set_cookie(
             key="access_token",
@@ -163,7 +163,7 @@ class BaseLoginView(APIView):
             key="refresh_token",
             value=str(refresh),
             httponly=True,
-            expires=datetime.utcnow() + timedelta(days=7),
+            expires=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRY_DAYS),
             samesite='Lax',
             secure=False 
             

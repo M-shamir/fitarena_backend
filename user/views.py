@@ -99,7 +99,7 @@ class NearbyStadiumsAPIView(APIView):
                     approval_status='approved',
                     listed=True,
                     is_deleted=False,
-                    location__distance_lte=(user_location, D(km=50))
+                    location__distance_lte=(user_location, D(km=settings.SEARCH_RADIUS_KM))
                 ).annotate(
                     distance=Distance('location', user_location)
                 ).order_by('distance')[:6]
