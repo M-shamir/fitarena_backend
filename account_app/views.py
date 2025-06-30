@@ -12,7 +12,9 @@ from django.contrib.auth.hashers import make_password
 from django.conf import settings
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.exceptions import NotFound
 from datetime import datetime, timedelta
 from rest_framework.permissions import IsAuthenticated
 import logging
@@ -368,3 +370,61 @@ class BaseProfileEditView(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        
+
+class BaseTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+    user_type = None  
+
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            return Response({"error": "Refresh token not found in cookies."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            payload = refresh.payload
+
+            user_id = payload.get('user_id')
+            if not user_id:
+                return Response({"error": "Invalid token payload: user_id missing."}, status=status.HTTP_401_UNAUTHORIZED)
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise NotFound("User not found.")
+
+           
+            if getattr(user, 'role', None) != self.user_type:
+                return Response({"error": "Role mismatch."}, status=status.HTTP_403_FORBIDDEN)
+
+        
+            access = refresh.access_token
+            access['role'] = self.user_type  
+
+            expires = datetime.utcnow() + timedelta(hours=2)
+
+            response = Response({
+                "message": "Token refreshed successfully",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": self.user_type,
+                }
+            }, status=status.HTTP_200_OK)
+
+            response.set_cookie(
+                key="access_token",
+                value=str(access),
+                httponly=True,
+                expires=expires,
+                samesite='Lax',
+                secure=False  
+            )
+
+            return response
+
+        except TokenError:
+            return Response({"error": "Invalid refresh token."}, status=status.HTTP_401_UNAUTHORIZED)

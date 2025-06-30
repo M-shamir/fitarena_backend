@@ -5,6 +5,7 @@ urlpatterns =  [
     path('auth/verifyotp',TrainerVerifyOtpView.as_view(),name='verifyotp'),
     path('auth/resendotp',TrainerResendOtpView.as_view(),name='resendotp'),
     path('auth/login',TrainerLoginView.as_view(),name='trainerlogin'),
+    path("auth/refresh-token", TrainerTokenRefreshView.as_view(), name="trainer_token_refresh"),
     path('forgot-password/',TrainerForgotPassword.as_view(),name='trainer-forgot-password'),
     path('reset-password/',TrainerResetPasswordView.as_view(),name='trainer-reset-passwod'),
     path("types/", TrainerTypeListView.as_view(), name="trainer-types"),

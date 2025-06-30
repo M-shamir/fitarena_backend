@@ -6,6 +6,7 @@ urlpatterns =  [
     path('auth/verifyotp',StadiumOwnerVerifyOtpView.as_view(),name='stadium_owner_verifyotp'),
     path('auth/resendotp',StadiumOwnerResendOtpView.as_view(),name='stadium_owner_resendotp'),
     path('auth/login',StadiumOwnerLoginView.as_view(),name='stadium_owner_trainerlogin'),
+    path("auth/refresh-token", StadiumOwnerTokenRefreshView.as_view(), name="stadium_owner_token_refresh"),
     path('profile/',StadiumOwnerProfile.as_view(),name='stadium_owner-profile'),
     path('stadiums/create/', StadiumCreateView.as_view(), name='stadium-create'),
     path('stadiums/pending/', PendingStadiumListView.as_view(), name='pending-stadiums'),
