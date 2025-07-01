@@ -251,6 +251,7 @@ class FacebookLogin(APIView):
                         auth_provider='facebook',
                         role='user',
                         is_verified=True,
+                        is_approved= 'approved'
                     )
                     logger.info(f"Created new user: {user.email}")
                 
@@ -258,6 +259,7 @@ class FacebookLogin(APIView):
                 refresh = RefreshToken.for_user(user)
                 access = refresh.access_token
                 
+                access['role'] = user.role
                 response_data = {
                     "message": "Login successful",
                     "user": {
