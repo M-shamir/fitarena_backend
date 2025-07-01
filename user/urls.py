@@ -1,10 +1,11 @@
 from django.urls import path
 from .views import *
-from account_app.views import GoogleLogin
+from account_app.views import GoogleLogin,FacebookLogin
 
 urlpatterns =  [
     path('auth/signup',SignUpView.as_view(),name='signup'),
     path('auth/google/', GoogleLogin.as_view(), name='google-login'),
+    path('auth/facebook/', FacebookLogin.as_view(), name='facebook-login'),
     path('auth/verifyotp',UserVerifyOtpView.as_view(),name='verifyotp'),
     path('auth/resendotp',UserResendOtpView.as_view(),name='resendotp'),
     path('auth/login',LoginView.as_view(),name='login'),

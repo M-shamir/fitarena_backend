@@ -17,11 +17,12 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.exceptions import NotFound
 from datetime import datetime, timedelta
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as google_requests
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
 import logging
 import secrets
-
+import requests 
 # Create your views here.
 User =  get_user_model()
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ class GoogleLogin(APIView):
             # Verify the token
             idinfo = id_token.verify_oauth2_token(
                 token, 
-                requests.Request(), 
+                google_requests.Request(), 
                 settings.GOOGLE_CLIENT_ID
             )
 
@@ -162,6 +163,131 @@ class GoogleLogin(APIView):
             return Response(
                 {'message': 'Authentication failed', 'detail': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class FacebookLogin(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        code = request.data.get('code')
+        
+        if not code:
+            return Response(
+                {'message': 'Authorization code missing'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 1. Exchange code for token
+            token_response = requests.post(
+                'https://graph.facebook.com/v19.0/oauth/access_token',
+                params={
+                    'client_id': settings.FACEBOOK_APP_ID,
+                    'redirect_uri': f"{settings.FRONTEND_URL}/user/auth/facebook/callback",
+                    'client_secret': settings.FACEBOOK_APP_SECRET,
+                    'code': code
+                }
+            )
+            
+            token_response.raise_for_status()
+            token_data = token_response.json()
+            
+            if 'error' in token_data:
+                raise ValueError(token_data['error']['message'])
+            
+            access_token = token_data['access_token']
+            
+            # 2. Get user profile with more fields
+            profile_response = requests.get(
+                'https://graph.facebook.com/v19.0/me',
+                params={
+                    'fields': 'id,name,email,first_name,last_name',
+                    'access_token': access_token
+                }
+            )
+            profile_response.raise_for_status()
+            profile = profile_response.json()
+            
+            # 3. Validate required fields
+            if not profile.get('email'):
+                logger.error("Facebook login failed - no email provided")
+                return Response(
+                    {'message': 'Email permission not granted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 4. Create or update user with transaction
+            with transaction.atomic():
+                # First try to find by facebook_id
+                user = User.objects.filter(facebook_id=profile['id']).first()
+                
+                if not user:
+                    # Then try by email
+                    user = User.objects.filter(email=profile['email']).first()
+                    
+                    if user:
+                        # Update existing user with facebook_id
+                        user.facebook_id = profile['id']
+                        user.auth_provider = 'facebook'
+                        user.save()
+                
+                if not user:
+                    # Create new user
+                    username_base = profile['email'].split('@')[0]
+                    username = username_base
+                    counter = 1
+                    
+                    # Ensure unique username
+                    while User.objects.filter(username=username).exists():
+                        username = f"{username_base}_{counter}"
+                        counter += 1
+                    
+                    user = User.objects.create(
+                        email=profile['email'],
+                        username=username,
+                        first_name=profile.get('first_name', ''),
+                        last_name=profile.get('last_name', ''),
+                        is_active=True,
+                        auth_provider='facebook',
+                        role='user',
+                        is_verified=True,
+                    )
+                    logger.info(f"Created new user: {user.email}")
+                
+                # Generate tokens
+                refresh = RefreshToken.for_user(user)
+                access = refresh.access_token
+                
+                response_data = {
+                    "message": "Login successful",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "role": user.role,
+                    }
+                }
+                
+                response = Response(response_data, status=status.HTTP_200_OK)
+                
+                # Set cookies
+                expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRY_HOURS)
+                response.set_cookie(
+                    key="access_token",
+                    value=str(access),
+                    httponly=True,
+                    expires=expires,
+                    samesite='Lax',
+                    secure=False
+                )
+                
+                return response
+
+        except Exception as e:
+            logger.error(f"Facebook login failed: {str(e)}")
+            return Response(
+                {'message': 'Facebook authentication failed', 'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 class BaseLoginView(APIView):
