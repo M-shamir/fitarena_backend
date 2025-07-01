@@ -19,7 +19,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     is_approved = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending') 
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
-    auth_provider = models.CharField(max_length=50, default='email')  # 'email' or 'google' 
+    auth_provider = models.CharField(max_length=50, default='email')  
     def __str__(self):
         return self.username
     

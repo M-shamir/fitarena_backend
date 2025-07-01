@@ -16,6 +16,8 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.exceptions import NotFound
 from datetime import datetime, timedelta
+from google.oauth2 import id_token
+from google.auth.transport import requests
 from rest_framework.permissions import IsAuthenticated
 import logging
 import secrets
@@ -50,74 +52,117 @@ class  BaseSignupView(APIView):
             return response
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
     
-class GoogleAuthView(APIView):
-    permission_classes = [AllowAny]
-
+class GoogleLogin(APIView):
+    permission_classes = [AllowAny] 
     def post(self, request):
-        email = request.data.get('email')
-        google_id = request.data.get('google_id')
-        name = request.data.get('name')
+        token = request.data.get('token')
+
+        if not token:
+            return Response(
+                {'message': 'Google token not provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        if not email or not google_id:
-            return Response({'error': 'Email and Google ID are required'}, 
-                           status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            user = User.objects.get(email=email)
-            
-            
-            if user.auth_provider != 'google':
-                return Response({'error': 'Please login using your registered method'},
-                               status=status.HTTP_400_BAD_REQUEST)
-                               
-        except User.DoesNotExist:
-            # Create new user
-            username = email.split('@')[0]
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                google_id=google_id,
-                auth_provider='google',
-                is_verified=True,  # Skip email verification
-                role='user'
+            # Verify the token
+            idinfo = id_token.verify_oauth2_token(
+                token, 
+                requests.Request(), 
+                settings.GOOGLE_CLIENT_ID
             )
-            user.set_unusable_password()
-            user.save()
-        
-        # Generate tokens (same as your normal login)
-        refresh = RefreshToken.for_user(user)
-        access = refresh.access_token
-        access['role'] = user.role
-        
-        response = Response({
-            'refresh': str(refresh),
-            'access': str(access),
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'role': user.role
+
+            # Validate token audience
+            if idinfo['aud'] != settings.GOOGLE_CLIENT_ID:
+                raise ValueError('Invalid audience')
+                
+            # Validate issuer
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                raise ValueError('Invalid issuer')
+                
+            # Check email verification
+            if not idinfo.get('email_verified', False):
+                raise ValueError('Email not verified by Google')
+            
+            # Get or create user
+            user, created = User.objects.get_or_create(
+                email=idinfo['email'],
+                defaults={
+                    'username': idinfo['email'].split('@')[0],
+                    'first_name': idinfo.get('given_name', ''),
+                    'last_name': idinfo.get('family_name', ''),
+                    'is_active': True,
+                    'auth_provider': 'google',
+                    'google_id': idinfo.get('sub'),
+                    'role': 'user',  # Default role
+                    'is_verified': True,  # Google verified email
+                    'is_approved': 'approved'
+                }
+            )
+            
+            # Update user if not created (in case they logged in with email before)
+            if not created:
+                if not user.google_id:
+                    user.google_id = idinfo.get('sub')
+                if not user.is_verified:
+                    user.is_verified = True
+                user.save()
+            
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+            
+            # Add role to access token
+            access['role'] = user.role
+            
+            # Prepare response
+            response_data = {
+                "message": "Login successful",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role,
+                    "is_verified": user.is_verified,
+                    "is_approved": user.is_approved,
+                }
             }
-        }, status=status.HTTP_200_OK)
-        
-        # Set cookies (same as your normal login)
-        expires = datetime.utcnow() + timedelta(hours=2)
-        response.set_cookie(
-            'access_token', 
-            str(access),
-            httponly=True,
-            expires=expires,
-            samesite='Lax'
-        )
-        response.set_cookie(
-            'refresh_token',
-            str(refresh),
-            httponly=True,
-            expires=datetime.utcnow() + timedelta(days=7),
-            samesite='Lax'
-        )
-        
-        return response
+            
+            # Set cookies
+            response = Response(response_data, status=status.HTTP_200_OK)
+            
+            expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRY_HOURS)
+            
+            response.set_cookie(
+                key="access_token",
+                value=str(access),
+                httponly=True,
+                expires=expires,
+                samesite='Lax',
+                secure=False 
+            )
+            
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                expires=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRY_DAYS),
+                samesite='Lax',
+                secure=False 
+            )
+            
+            return response
+            
+        except ValueError as e:
+            return Response(
+                {'message': 'Invalid Google token', 'detail': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'message': 'Authentication failed', 'detail': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class BaseLoginView(APIView):
     permission_classes = [AllowAny]
