@@ -12,12 +12,13 @@ from trainer.serializers import TrainerSerializer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
-from .serializers import TrainerListSerializer,StadiumListSerializer,TrainerCourceSerializer
+from .serializers import TrainerListSerializer,StadiumListSerializer,TrainerCourceSerializer,UserListSerializer
 from core.permission import IsAdmin
 from trainer.models import TrainerProfile,TrainerCource
 from stadium_owner.models import StadiumOwnerProfile,Stadium
 from stadium_owner.serializers import StadiumSerializer
 from trainer.services.course_service import TrainerCourseService
+from rest_framework.pagination import PageNumberPagination
 # Create your views here.
 
 User = get_user_model()
@@ -77,19 +78,25 @@ class AdminLoginView(APIView):
 
 class UserListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
-
+    
     def get(self, request, *args, **kwargs):
-        
-        
         users = User.objects.exclude(
             is_superuser=True
         ).exclude(
             role__in=["trainer", "stadium_owner"]
-        ).values(
-            "id", "username", "email", "role", "profile_photo", "is_staff", "is_verified"
-        )
-
-        return Response({"users": list(users)}, status=status.HTTP_200_OK)  
+        ).order_by('id')  # Add ordering for consistent pagination
+        
+        # Create paginator instance
+        paginator = PageNumberPagination()
+        paginator.page_size = request.GET.get('page_size', 5) 
+        
+        # Paginate the queryset
+        result_page = paginator.paginate_queryset(users, request)
+        
+        serializer = UserListSerializer(result_page, many=True)
+        
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
 
 class   BlockUnblockUserView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -252,8 +259,16 @@ class ApprovedTrainerCourceListView(APIView):
             approval_status='approved',
             is_deleted=False
         )
-        serializer = TrainerCourceSerializer(approved_cources, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = PageNumberPagination()
+        paginator.page_size = request.GET.get('page_size', 5) 
+        
+        # Paginate the queryset
+        result_page = paginator.paginate_queryset(approved_cources, request)
+
+        serializer = TrainerCourceSerializer(result_page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
 
 
 class PendingStadiumOwnerApprovalView(APIView):

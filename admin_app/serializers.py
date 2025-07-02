@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from account_app.models import User
 from rest_framework.exceptions import AuthenticationFailed
 from trainer.serializers import TrainerProfile
 from stadium_owner.models import StadiumOwnerProfile
@@ -66,3 +66,9 @@ class TrainerCourceSerializer(serializers.ModelSerializer):
             'approval_status', 'approval_note', 'is_deleted', 'created_at', 'updated_at',
             'duration_minutes'
         ]
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'role', 'profile_photo', 'is_staff', 'is_verified']
