@@ -1,6 +1,8 @@
 from django.conf import settings
 from .payment_gateways import stripe as stripe_gateway
 from stadium_owner.models import Slot
+import stripe
+
 
 class PaymentService:
     def __init__(self):
@@ -52,3 +54,27 @@ class PaymentService:
 
     def verify_payment(self, session_id):
         return self.gateway.verify_payment(session_id)
+
+
+    def process_refund(self, session_id, amount=None):
+    
+        try:
+            # Process refund through the gateway
+            refund_success = self.gateway.refund_payment(
+                session_id=session_id,  # Changed from payment_id to session_id
+                amount=amount
+            )
+            
+            return refund_success
+        except Exception as e:
+            raise Exception(f"Refund processing failed: {str(e)}")
+        
+    def get_refund_id(self, session_id):
+    
+        try:
+            # Retrieve the most recent refund for this payment intent
+            session = stripe.checkout.Session.retrieve(session_id)
+            refunds = stripe.Refund.list(payment_intent=session.payment_intent, limit=1)
+            return refunds.data[0].id if refunds.data else None
+        except Exception:
+            return None
