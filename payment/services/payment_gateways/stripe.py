@@ -55,12 +55,20 @@ class StripePaymentGateway(PaymentGateway):
         except Exception as e:
             raise Exception(f"Stripe verification error: {str(e)}")
 
-    def refund_payment(self, payment_id, amount=None):
+    def refund_payment(self, session_id, amount=None):
         try:
+            # Retrieve the session to get payment intent ID
+            session = stripe.checkout.Session.retrieve(session_id)
+            
+            if session.payment_status != 'paid':
+                raise Exception("Payment not completed, cannot refund")
+                
+            # Create refund using the payment intent from the session
             refund = stripe.Refund.create(
-                payment_intent=payment_id,
+                payment_intent=session.payment_intent,
                 amount=int(amount * 100) if amount else None
             )
+            
             return refund.status == 'succeeded'
         except Exception as e:
             raise Exception(f"Stripe refund error: {str(e)}")

@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import *
 from datetime import date, timedelta
+from django.db import transaction
 from django.utils import timezone
 from datetime import datetime
 from django.db.models import DateTimeField, ExpressionWrapper, F, Func
@@ -35,6 +36,7 @@ from trainer.services.zego_service import ZegoCloudService
 import logging
 from django.db.models import Q
 from datetime import datetime
+from payment.services.payment_service import PaymentService
 
 
 
@@ -417,6 +419,7 @@ class UserEnrolledCoursesView(generics.ListAPIView):
         ).select_related('course', 'course__trainer', 'course__trainer__user')
     
 
+
 class CancelCourseEnrollmentView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = CourseEnrollment.objects.all()
@@ -425,14 +428,12 @@ class CancelCourseEnrollmentView(generics.DestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         
-        
         if instance.order.user != request.user:
             return Response(
                 {"detail": "You don't have permission to cancel this enrollment."},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-       
         today = timezone.now().date()
         if instance.course.start_date <= today:
             return Response(
@@ -440,15 +441,57 @@ class CancelCourseEnrollmentView(generics.DestroyAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-       
-        instance.is_cancelled = True
-        instance.cancelled_at = timezone.now()
-        instance.save()
+        # Check if already cancelled
+        if instance.is_cancelled:
+            return Response(
+                {"detail": "Enrollment is already cancelled."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        return Response(
-            {"detail": "Course enrollment cancelled successfully."},
-            status=status.HTTP_200_OK
-        )
+        # Process refund
+        payment_service = PaymentService()
+        try:
+            # Initiate refund
+            refund_success = payment_service.process_refund(
+                session_id=instance.order.stripe_session_id,
+                amount=float(instance.order.amount)
+            )
+
+            if refund_success:
+                refund_id = payment_service.get_refund_id(instance.order.stripe_session_id)
+                refund_at = timezone.now()
+                # Update enrollment status
+                instance.is_cancelled = True
+                instance.cancelled_at = timezone.now()
+                instance.save()
+                
+                # Update order status
+                instance.order.status = 'refunded'
+                instance.order.refund_amount = instance.order.amount
+                instance.order.refund_id = refund_id
+                instance.order.refund_at = refund_at
+                instance.order.save()
+                
+                return Response({
+                        "detail": "Course enrollment cancelled and refund processed successfully.",
+                        "refund_details": {
+                            "amount_refunded": float(instance.order.amount),
+                            "currency": instance.order.currency,
+                            "refund_id": payment_service.get_refund_id(instance.order.stripe_session_id),
+                            "order_status": "refunded"
+                        }
+                    }, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {"detail": "Refund failed. Please contact support."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            return Response(
+                {"detail": f"Error processing refund: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
 
 
@@ -590,43 +633,79 @@ class UserPastSlotBookingsAPI(generics.ListAPIView):
         return context
     
 
+
 class CancelSlotBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, booking_id):
         try:
-            # Get the booking
-            booking = get_object_or_404(
-                SlotBooking, 
-                id=booking_id,          # This should be the SlotBooking ID (14 in your case)
-                order__user=request.user,
-                is_cancelled=False
-            )
-            
-            # Get the associated slot
-            slot = booking.slot
-            
-            # Update booking status
-            booking.is_cancelled = True
-            booking.cancelled_at = timezone.now()
-            booking.save()
-            
-            # Update slot status
-            slot.status = 'available'
-            slot.booked_by = None
-            slot.save()
-            
-            # Update order status
-            booking.order.status = 'cancelled'
-            booking.order.save()
-            
-            return Response(
-                {"detail": "Booking cancelled successfully."},
-                status=status.HTTP_200_OK
-            )
-            
+            with transaction.atomic():
+                # Get the booking with lock to prevent race conditions
+                booking = get_object_or_404(
+                    SlotBooking.objects.select_for_update(),
+                    id=booking_id,
+                    order__user=request.user,
+                    is_cancelled=False
+                )
+
+                # Validate slot can be cancelled (not in past)
+                if booking.slot.date < timezone.now().date():
+                    return Response(
+                        {"detail": "Cannot cancel past bookings."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Process refund
+                payment_service = PaymentService()
+                refund_success = payment_service.process_refund(
+                    session_id=booking.order.stripe_session_id,
+                    amount=float(booking.order.amount)
+                )
+
+                if not refund_success:
+                    logger.error(f"Refund failed for booking {booking_id}")
+                    return Response(
+                        {"detail": "Refund failed. Please contact support."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Get refund details
+                refund_id = payment_service.get_refund_id(booking.order.stripe_session_id)
+                refund_at = timezone.now()
+
+                # Update booking status
+                booking.is_cancelled = True
+                booking.cancelled_at = refund_at
+                booking.save()
+
+                # Update slot status
+                slot = booking.slot
+                slot.status = 'available'
+                slot.booked_by = None
+                slot.save()
+
+                # Update order status with refund details
+                booking.order.status = 'refunded'
+                booking.order.refund_amount = booking.order.amount
+                booking.order.refund_id = refund_id
+                booking.order.refunded_at = refund_at
+                booking.order.save()
+
+                logger.info(f"Successfully processed refund for booking {booking_id}")
+                return Response({
+                    "detail": "Slot booking cancelled and refund processed successfully.",
+                    "refund_details": {
+                        "amount_refunded": float(booking.order.amount),
+                        "currency": booking.order.currency,
+                        "refund_id": refund_id,
+                        "order_status": "refunded",
+                        "cancelled_at": refund_at.isoformat()
+                    }
+                }, status=status.HTTP_200_OK)
+
         except Exception as e:
+            logger.error(f"Error processing refund for booking {booking_id}: {str(e)}")
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Error processing refund: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
