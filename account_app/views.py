@@ -604,6 +604,15 @@ class BaseTokenRefreshView(APIView):
                 samesite='Lax',
                 secure=False  
             )
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                expires=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRY_DAYS),
+                samesite='Lax',
+                secure=False  
+            )
+
 
             return response
 
