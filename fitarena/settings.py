@@ -80,7 +80,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3001',
     'http://localhost:3002',
     'http://localhost:3003',  
-    'http://localhost:3004',     
+    'http://localhost:3004',
+         
 ]
 
 ROOT_URLCONF = 'fitarena.urls'
@@ -127,6 +128,15 @@ CACHES = {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
 }
 
 CELERY_BROKER_URL = 'redis://redis_cache:6379/0'  
