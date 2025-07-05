@@ -3,6 +3,7 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
+import json
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
@@ -34,3 +35,24 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
+    
+    async def disconnect(self, close_code):
+        # Leave the group if we're connected
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+
+    # Add this handler method to handle 'send_notification' messages
+    async def send_notification(self, event):
+        """
+        Handles 'send_notification' messages from the channel layer
+        """
+        message = event['data']
+        
+        # Send message to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'notification',
+            'message': message
+        }))

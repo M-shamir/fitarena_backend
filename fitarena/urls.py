@@ -24,5 +24,6 @@ urlpatterns = [
     path('api/stadium_owner/',include('stadium_owner.urls')),
     path("api/admin-api/", include("admin_app.urls")),
     path("api/payment/",include("payment.urls")),
-    path("api/orders/",include("orders.urls"))
+    path("api/orders/",include("orders.urls")),
+    path('api/notifications/', include('realtime.urls')),
 ]

@@ -7,6 +7,7 @@ from .services.payment_service import PaymentService
 from stadium_owner.models import Slot
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from realtime.services.notification import NotificationService
 
 class CreateCoursePaymentAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -167,6 +168,12 @@ class VerifySlotPaymentAPIView(APIView):
                         slot.status = 'booked'
                         slot.booked_by_id = user_id
                         slot.save()
+                        
+                    NotificationService.send_notification_to_user(
+                        user_id,
+                        "🎉 Thank you for choosing FitArena to book stadium slots! To see more about your booking, please visit your profile page."
+                    )
+
                     
                     return Response({
                         'success': True,

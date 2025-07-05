@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'payment',
     'orders',
     'channels',
+    'realtime'
    
 ]
 
