@@ -1,0 +1,81 @@
+services:
+  web:
+    build: .
+    container_name: django_app
+    command: uvicorn fitarena.asgi:application --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app_network
+    expose:
+      - "8000"
+    environment:
+      - DEBUG=${DEBUG}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+
+  db:
+    image: postgis/postgis:17-3.4
+    container_name: postgres_db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7.4.2
+    container_name: redis_cache
+    networks:
+      - app_network
+    ports:
+      - "6379:6379"
+
+
+  celery:
+    build: .
+    container_name: celery_worker
+    command: celery -A fitarena worker --loglevel=info
+    depends_on:
+      - redis
+      - db
+      - web
+    networks:
+      - app_network
+  
+  celerybeat:
+    build: .
+    container_name: celery_beat
+    command: celery -A fitarena beat --loglevel=info
+    depends_on:
+      - redis
+      - db
+      - web
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_server
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - web
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -21,9 +21,7 @@ app_logs.log
 # Ignore the .vscode folder (VS Code settings)
 .vscode/
 
-# Ignore Docker related files
-docker-compose.yml
-Dockerfile
+
 
 # Ignore system-specific files
 .DS_Store
