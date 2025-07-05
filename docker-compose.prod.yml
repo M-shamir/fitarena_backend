@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  web:
+    image: fitarena/fitarena:latest
+    container_name: django_app
+    restart: always
+    command: gunicorn fitarena.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers=4
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app_network
+    expose:
+      - "8000"
+    environment:
+      - DEBUG=0
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - FRONTEND_SUCCESS_URL=${FRONTEND_SUCCESS_URL}
+      - FRONTEND_CANCEL_URL=${FRONTEND_CANCEL_URL}
+
+  db:
+    image: postgis/postgis:17-3.4
+    container_name: postgres_db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7.4.2
+    container_name: redis_cache
+    networks:
+      - app_network
+    ports:
+      - "6379:6379"
+
+  celery:
+    image: fitarena/fitarena:latest
+    container_name: celery_worker
+    command: celery -A fitarena worker --loglevel=info
+    depends_on:
+      - redis
+      - db
+      - web
+    networks:
+      - app_network
+
+  celerybeat:
+    image: fitarena/fitarena:latest
+    container_name: celery_beat
+    command: celery -A fitarena beat --loglevel=info
+    depends_on:
+      - redis
+      - db
+      - web
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
