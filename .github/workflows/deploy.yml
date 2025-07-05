@@ -25,7 +25,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./backend/fitarena
+          file: ./backend/fitarena/Dockerfile
           push: true
           tags: fitarena/fitarena:latest
 
