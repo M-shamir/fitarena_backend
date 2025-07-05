@@ -37,7 +37,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             echo "Navigating to project directory..."
-            cd /home/ubuntu/your-project
+            cd /home/ubuntu/fitarena
 
             echo "Pulling the latest image..."
             docker pull fitarena/fitarena:latest
