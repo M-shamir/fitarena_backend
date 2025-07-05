@@ -24,7 +24,7 @@ DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = []
 AUTH_USER_MODEL = "account_app.User"
 
-FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 # Application definition
 
@@ -77,6 +77,7 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = False 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
     'http://localhost:3000',  
     'http://localhost:3001',
     'http://localhost:3002',
@@ -179,9 +180,15 @@ ACCOUNT_USERNAME_REQUIRED = False
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
-FRONTEND_SUCCESS_URL = 'http://localhost:3000/user/bookings/courses/success'
-FRONTEND_CANCEL_URL = 'http://localhost:3000/user/bookings/courses/cancel'
+FRONTEND_SUCCESS_URL = os.getenv(
+    "FRONTEND_SUCCESS_URL",
+    f"{FRONTEND_URL}/user/bookings/courses/success"
+)
 
+FRONTEND_CANCEL_URL = os.getenv(
+    "FRONTEND_CANCEL_URL",
+    f"{FRONTEND_URL}/user/bookings/courses/cancel"
+)
 
 LOGGING = {
     'version': 1,
