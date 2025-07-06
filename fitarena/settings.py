@@ -78,6 +78,7 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     FRONTEND_URL,
+    "https://muhammedshamir.in",
     'http://localhost:3000',  
     'http://localhost:3001',
     'http://localhost:3002',
