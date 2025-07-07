@@ -19,6 +19,7 @@ from stadium_owner.models import StadiumOwnerProfile,Stadium
 from stadium_owner.serializers import StadiumSerializer
 from trainer.services.course_service import TrainerCourseService
 from rest_framework.pagination import PageNumberPagination
+from realtime.services.notification import NotificationService
 # Create your views here.
 
 User = get_user_model()
@@ -220,13 +221,19 @@ class ApproveTrainerCourceView(APIView):
         cource.approval_note = request.data.get("approval_note", "")
         cource.save()
 
-        # Create sessions for the approved course
+        
         try:
             TrainerCourseService.approve_course(cource.id)
         except Exception as e:
             # Log the error but don't fail the approval
             # You might want to add proper logging here
             print(f"Error creating sessions: {str(e)}")
+
+        trainer_user_id = cource.trainer.user.id
+        NotificationService.send_notification_to_user(
+            trainer_user_id,
+            f"🎓 Congratulations! Your course '{cource.title}' has been approved and is now live on FitArena."
+        )
 
         return Response(
             {"message": "Trainer course approved and sessions created successfully."},
@@ -372,6 +379,12 @@ class ApproveStadiumView(APIView):
             
         stadium.approval_status = 'approved'
         stadium.save()
+        owner_user_id = stadium.owner.user.id
+        NotificationService.send_notification_to_user(
+            owner_user_id,
+            f"🏟️ Great news! Your stadium '{stadium.name}' has been approved and is now live on FitArena. You can now start receiving bookings."
+        )
+
         return Response(
             {"message": "Stadium approved successfully"},
             status=status.HTTP_200_OK
