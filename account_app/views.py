@@ -165,140 +165,140 @@ class GoogleLogin(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
-class FacebookLogin(APIView):
-    permission_classes = [AllowAny]
+# class FacebookLogin(APIView):
+#     permission_classes = [AllowAny]
 
-    def post(self, request):
-        code = request.data.get('code')
+#     def post(self, request):
+#         code = request.data.get('code')
         
-        if not code:
-            return Response(
-                {'message': 'Authorization code missing'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if not code:
+#             return Response(
+#                 {'message': 'Authorization code missing'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        try:
-            # 1. Exchange code for token
-            token_response = requests.post(
-                'https://graph.facebook.com/v19.0/oauth/access_token',
-                params={
-                    'client_id': settings.FACEBOOK_APP_ID,
-                    'redirect_uri': f"{settings.FRONTEND_URL}/user/auth/facebook/callback",
-                    'client_secret': settings.FACEBOOK_APP_SECRET,
-                    'code': code
-                }
-            )
+#         try:
+#             # 1. Exchange code for token
+#             token_response = requests.post(
+#                 'https://graph.facebook.com/v19.0/oauth/access_token',
+#                 params={
+#                     'client_id': settings.FACEBOOK_APP_ID,
+#                     'redirect_uri': f"{settings.FRONTEND_URL}/user/auth/facebook/callback",
+#                     'client_secret': settings.FACEBOOK_APP_SECRET,
+#                     'code': code
+#                 }
+#             )
             
-            token_response.raise_for_status()
-            token_data = token_response.json()
+#             token_response.raise_for_status()
+#             token_data = token_response.json()
             
-            if 'error' in token_data:
-                raise ValueError(token_data['error']['message'])
+#             if 'error' in token_data:
+#                 raise ValueError(token_data['error']['message'])
             
-            access_token = token_data['access_token']
+#             access_token = token_data['access_token']
             
-            # 2. Get user profile with more fields
-            profile_response = requests.get(
-                'https://graph.facebook.com/v19.0/me',
-                params={
-                    'fields': 'id,name,email,first_name,last_name',
-                    'access_token': access_token
-                }
-            )
-            profile_response.raise_for_status()
-            profile = profile_response.json()
+#             # 2. Get user profile with more fields
+#             profile_response = requests.get(
+#                 'https://graph.facebook.com/v19.0/me',
+#                 params={
+#                     'fields': 'id,name,email,first_name,last_name',
+#                     'access_token': access_token
+#                 }
+#             )
+#             profile_response.raise_for_status()
+#             profile = profile_response.json()
             
-            # 3. Validate required fields
-            if not profile.get('email'):
-                logger.error("Facebook login failed - no email provided")
-                return Response(
-                    {'message': 'Email permission not granted'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+#             # 3. Validate required fields
+#             if not profile.get('email'):
+#                 logger.error("Facebook login failed - no email provided")
+#                 return Response(
+#                     {'message': 'Email permission not granted'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
             
-            # 4. Create or update user with transaction
-            with transaction.atomic():
-                # First try to find by facebook_id
-                user = User.objects.filter(facebook_id=profile['id']).first()
+#             # 4. Create or update user with transaction
+#             with transaction.atomic():
+#                 # First try to find by facebook_id
+#                 user = User.objects.filter(facebook_id=profile['id']).first()
                 
-                if not user:
-                    # Then try by email
-                    user = User.objects.filter(email=profile['email']).first()
+#                 if not user:
+#                     # Then try by email
+#                     user = User.objects.filter(email=profile['email']).first()
                     
-                    if user:
-                        # Update existing user with facebook_id
-                        user.facebook_id = profile['id']
-                        user.auth_provider = 'facebook'
-                        user.save()
+#                     if user:
+#                         # Update existing user with facebook_id
+#                         user.facebook_id = profile['id']
+#                         user.auth_provider = 'facebook'
+#                         user.save()
                 
-                if not user:
-                    # Create new user
-                    username_base = profile['email'].split('@')[0]
-                    username = username_base
-                    counter = 1
+#                 if not user:
+#                     # Create new user
+#                     username_base = profile['email'].split('@')[0]
+#                     username = username_base
+#                     counter = 1
                     
-                    # Ensure unique username
-                    while User.objects.filter(username=username).exists():
-                        username = f"{username_base}_{counter}"
-                        counter += 1
+#                     # Ensure unique username
+#                     while User.objects.filter(username=username).exists():
+#                         username = f"{username_base}_{counter}"
+#                         counter += 1
                     
-                    user = User.objects.create(
-                        email=profile['email'],
-                        username=username,
-                        first_name=profile.get('first_name', ''),
-                        last_name=profile.get('last_name', ''),
-                        is_active=True,
-                        auth_provider='facebook',
-                        role='user',
-                        is_verified=True,
-                        is_approved= 'approved'
-                    )
-                    logger.info(f"Created new user: {user.email}")
+#                     user = User.objects.create(
+#                         email=profile['email'],
+#                         username=username,
+#                         first_name=profile.get('first_name', ''),
+#                         last_name=profile.get('last_name', ''),
+#                         is_active=True,
+#                         auth_provider='facebook',
+#                         role='user',
+#                         is_verified=True,
+#                         is_approved= 'approved'
+#                     )
+#                     logger.info(f"Created new user: {user.email}")
                 
-                # Generate tokens
-                refresh = RefreshToken.for_user(user)
-                access = refresh.access_token
+#                 # Generate tokens
+#                 refresh = RefreshToken.for_user(user)
+#                 access = refresh.access_token
                 
-                access['role'] = user.role
-                response_data = {
-                    "message": "Login successful",
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "role": user.role,
-                    }
-                }
+#                 access['role'] = user.role
+#                 response_data = {
+#                     "message": "Login successful",
+#                     "user": {
+#                         "id": user.id,
+#                         "username": user.username,
+#                         "email": user.email,
+#                         "role": user.role,
+#                     }
+#                 }
                 
-                response = Response(response_data, status=status.HTTP_200_OK)
+#                 response = Response(response_data, status=status.HTTP_200_OK)
                 
-                # Set cookies
-                expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRY_HOURS)
-                response.set_cookie(
-                    key="access_token",
-                    value=str(access),
-                    httponly=True,
-                    expires=expires,
-                    samesite='Lax',
-                    secure=False
-                )
-                response.set_cookie(
-                    key="refresh_token",
-                    value=str(refresh),
-                    httponly=True,
-                    expires=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRY_DAYS),
-                    samesite='Lax',
-                    secure=False
-                )
+#                 # Set cookies
+#                 expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRY_HOURS)
+#                 response.set_cookie(
+#                     key="access_token",
+#                     value=str(access),
+#                     httponly=True,
+#                     expires=expires,
+#                     samesite='Lax',
+#                     secure=False
+#                 )
+#                 response.set_cookie(
+#                     key="refresh_token",
+#                     value=str(refresh),
+#                     httponly=True,
+#                     expires=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRY_DAYS),
+#                     samesite='Lax',
+#                     secure=False
+#                 )
                 
-                return response
+#                 return response
 
-        except Exception as e:
-            logger.error(f"Facebook login failed: {str(e)}")
-            return Response(
-                {'message': 'Facebook authentication failed', 'detail': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         except Exception as e:
+#             logger.error(f"Facebook login failed: {str(e)}")
+#             return Response(
+#                 {'message': 'Facebook authentication failed', 'detail': str(e)},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
 class BaseLoginView(APIView):
     permission_classes = [AllowAny]
