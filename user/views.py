@@ -200,7 +200,7 @@ class TrainerCoursesAPIView(APIView):
             )
 
         # Get today's date and add 1 day (tomorrow)
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = date.today() + timedelta(days=0)
 
         courses = TrainerCource.objects.filter(
             trainer=trainer,
