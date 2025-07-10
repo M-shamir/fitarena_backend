@@ -166,7 +166,7 @@ class GoogleLogin(APIView):
             )
         
 class FacebookLogin(APIView):
-    permission_classes = [AllowAny]
+    
 
     def post(self, request):
         code = request.data.get('code')
