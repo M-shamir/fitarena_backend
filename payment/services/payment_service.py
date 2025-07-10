@@ -20,8 +20,8 @@ class PaymentService:
             amount=course.price,
             currency='INR',
             metadata=metadata,
-            success_url='http://localhost:3000/user/bookings/courses/success',
-            cancel_url='http://localhost:3000/user/bookings/courses/cancel'
+            success_url=settings.FRONTEND_COURSE_SUCCESS_URL,
+            cancel_url=settings.FRONTEND_COURSE_CANCEL_URL
         )
 
         return {
@@ -43,8 +43,8 @@ class PaymentService:
             amount=total_amount,
             currency='INR',
             metadata=metadata,
-            success_url='http://localhost:3000/user/bookings/slot/success',
-            cancel_url='http://localhost:3000/user/bookings/slot/cancel'
+            success_url=settings.FRONTEND_SLOT_SUCCESS_URL,
+            cancel_url=settings.FRONTEND_SLOT_CANCEL_URL
         )
 
         return {
