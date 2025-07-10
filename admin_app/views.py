@@ -12,7 +12,7 @@ from trainer.serializers import TrainerSerializer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
-from .serializers import TrainerListSerializer,StadiumListSerializer,TrainerCourceSerializer,UserListSerializer
+from .serializers import TrainerListSerializer,StadiumListSerializer,TrainerCourceSerializer,UserListSerializer,EarningsSummarySerializer
 from core.permission import IsAdmin
 from trainer.models import TrainerProfile,TrainerCource
 from stadium_owner.models import StadiumOwnerProfile,Stadium
@@ -20,7 +20,11 @@ from stadium_owner.serializers import StadiumSerializer
 from trainer.services.course_service import TrainerCourseService
 from rest_framework.pagination import PageNumberPagination
 from realtime.services.notification import NotificationService
-# Create your views here.
+from trainer.models import TrainerProfile, TrainerCource
+from stadium_owner.models import StadiumOwnerProfile, Slot
+from orders.models import Order, CourseEnrollment, SlotBooking
+from .serializers import EarningsSummarySerializer
+from django.db.models import Sum, Count
 
 User = get_user_model()
 class AdminLoginView(APIView):
@@ -439,3 +443,68 @@ class AdminLogoutView(APIView):
         response.delete_cookie("refresh_token")
 
         return response
+    
+
+class EarningsSummaryView(APIView):
+    def get(self, request):
+        role = request.query_params.get('role')
+
+        if role not in ['trainer', 'stadium_owner']:
+            return Response({'error': 'Invalid role. Use ?role=trainer or ?role=stadium_owner'}, status=400)
+
+        response_data = []
+
+        if role == 'trainer':
+            trainers = TrainerProfile.objects.select_related('user').all()
+
+            for trainer in trainers:
+                courses = TrainerCource.objects.filter(trainer=trainer)
+                enrollments = CourseEnrollment.objects.filter(
+                    course__in=courses,
+                    order__status='completed'
+                )
+
+                total_earned = enrollments.aggregate(
+                    total=Sum('order__amount'),
+                    count=Count('order')
+                )
+
+                response_data.append({
+                    'user_id': trainer.user.id,
+                    'username': trainer.user.username,
+                    'email': trainer.user.email,
+                    'role': trainer.user.role,
+                    'profile_id': trainer.id,
+                    'total_earnings': total_earned['total'] or 0.00,
+                    'number_of_orders': total_earned['count']
+                })
+
+        elif role == 'stadium_owner':
+            owners = StadiumOwnerProfile.objects.select_related('user').all()
+
+            for owner in owners:
+                # ✅ FIXED: Traverse through the stadium relation
+                slots = Slot.objects.filter(stadium__owner=owner)
+
+                bookings = SlotBooking.objects.filter(
+                    slot__in=slots,
+                    order__status='completed'
+                )
+
+                total_earned = bookings.aggregate(
+                    total=Sum('order__amount'),
+                    count=Count('order')
+                )
+
+                response_data.append({
+                    'user_id': owner.user.id,
+                    'username': owner.user.username,
+                    'email': owner.user.email,
+                    'role': owner.user.role,
+                    'profile_id': owner.id,
+                    'total_earnings': total_earned['total'] or 0.00,
+                    'number_of_orders': total_earned['count']
+                })
+
+        serializer = EarningsSummarySerializer(response_data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

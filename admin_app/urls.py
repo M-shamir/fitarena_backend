@@ -22,7 +22,8 @@ from .views import (
     ApproveTrainerCourceView,
     RejectTrainerCourceView,
     AdminLogoutView,
-    ApprovedTrainerCourceListView
+    ApprovedTrainerCourceListView,
+    EarningsSummaryView
 
 )
 
@@ -50,6 +51,9 @@ urlpatterns = [
     path('stadiums/<int:stadium_id>/approve/', ApproveStadiumView.as_view(), name='approve-stadium'),
     path('stadiums/<int:stadium_id>/reject/', RejectStadiumView.as_view(), name='reject-stadium'),
     path("stadiums/<int:stadium_id>/list-toggle/", ListUnlistStadiumView.as_view()),
+
+
+    path('earnings-summary/', EarningsSummaryView.as_view(), name='earnings-summary'),
 
     path('logout/', AdminLogoutView.as_view(), name='admin-logout'),
 
