@@ -82,3 +82,9 @@ class EarningsSummarySerializer(serializers.Serializer):
     profile_id = serializers.IntegerField()
     total_earnings = serializers.DecimalField(max_digits=10, decimal_places=2)
     number_of_orders = serializers.IntegerField()
+
+
+class RecentUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'role', 'date_joined', 'profile_photo']

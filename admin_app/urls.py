@@ -23,7 +23,8 @@ from .views import (
     RejectTrainerCourceView,
     AdminLogoutView,
     ApprovedTrainerCourceListView,
-    EarningsSummaryView
+    EarningsSummaryView,
+    UserStatsSummaryView
 
 )
 
@@ -54,6 +55,7 @@ urlpatterns = [
 
 
     path('earnings-summary/', EarningsSummaryView.as_view(), name='earnings-summary'),
+    path('dashboard/', UserStatsSummaryView.as_view(), name='dashboard'),
 
     path('logout/', AdminLogoutView.as_view(), name='admin-logout'),
 

@@ -25,6 +25,9 @@ from stadium_owner.models import StadiumOwnerProfile, Slot
 from orders.models import Order, CourseEnrollment, SlotBooking
 from .serializers import EarningsSummarySerializer
 from django.db.models import Sum, Count
+from django.db.models import Q
+from account_app.models import User  # Your custom User model
+from .serializers import RecentUserSerializer
 
 User = get_user_model()
 class AdminLoginView(APIView):
@@ -446,6 +449,7 @@ class AdminLogoutView(APIView):
     
 
 class EarningsSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
     def get(self, request):
         role = request.query_params.get('role')
 
@@ -508,3 +512,25 @@ class EarningsSummaryView(APIView):
 
         serializer = EarningsSummarySerializer(response_data, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class UserStatsSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    def get(self, request):
+        # Filter approved & verified users only
+        approved_verified_filter = Q(is_verified=True) & Q(is_approved='approved')
+
+        total_users = User.objects.filter(approved_verified_filter, role='user').count()
+        total_trainers = User.objects.filter(approved_verified_filter, role='trainer').count()
+        total_owners = User.objects.filter(approved_verified_filter, role='stadium_owner').count()
+
+        recent_users = User.objects.exclude(role='admin').order_by('-date_joined')[:5]
+
+        response_data = {
+            "total_users": total_users,
+            "total_trainers": total_trainers,
+            "total_stadium_owners": total_owners,
+            "recent_signups": RecentUserSerializer(recent_users, many=True).data
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
