@@ -8,6 +8,7 @@ urlpatterns =  [
     path('auth/login',StadiumOwnerLoginView.as_view(),name='stadium_owner_trainerlogin'),
     path("auth/refresh-token", StadiumOwnerTokenRefreshView.as_view(), name="stadium_owner_token_refresh"),
     path('profile/',StadiumOwnerProfile.as_view(),name='stadium_owner-profile'),
+    path('profile/edit/', Stadium_OwnerProfileEditView.as_view(), name='edit-stadium_owner-profile'),
     path('stadiums/create/', StadiumCreateView.as_view(), name='stadium-create'),
     path('stadiums/pending/', PendingStadiumListView.as_view(), name='pending-stadiums'),
     path('stadiums/edit/<int:pk>/', StadiumOwnerEditPendingView.as_view(), name='owner-edit-pending-stadium'),

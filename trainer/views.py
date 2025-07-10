@@ -32,6 +32,7 @@ from django.db.models import Count, Sum, Q
 import datetime
 from rest_framework.response import Response
 from rest_framework import status
+from realtime.services.notification import NotificationService
 import time
 import hashlib
 import hmac
@@ -105,23 +106,29 @@ class TrainerProfileView(BaseProfileView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     def patch(self, request, *args, **kwargs):
-        user = request.user
-
         try:
+            user = request.user
             user_role = request.auth.get('role', None)
+
             if user_role != self.user_type:
                 return Response({"error": "Unauthorized role"}, status=status.HTTP_403_FORBIDDEN)
-            
+
             trainer_profile = user.trainer_profile
             serializer = self.serializer_class(trainer_profile, data=request.data, partial=True)
 
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            serializer.save()
-            return Response({"message": "Profile Updated Successfully", "profile": serializer.data}, status=status.HTTP_200_OK)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "message": "Trainer Profile Updated Successfully",
+                    "profile": serializer.data
+                }, status=status.HTTP_200_OK)
+
+            return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        except TrainerProfile.DoesNotExist:
+            return Response({"error": "Trainer profile not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TrainerForgotPassword(BaseForgotPassword):
@@ -152,6 +159,13 @@ class TrainerCreateCourceView(APIView):
              # Create the course using the service
             course = TrainerCourseService.create_course(trainer, base_info, course_variant,thumbnail=thumbnail )
             course_serializer = TrainerCourceSerializer(course)
+            admins = User.objects.filter(is_superuser=True)
+            for admin in admins:
+                NotificationService.send_notification_to_user(
+                    admin.id,
+                    f"📢 Trainer '{user.username}' has created a new course titled '{course.title}' on FitArena. Please review if needed."
+                )
+
             return Response(
                 {"message": "Course created successfully!", "course": course_serializer.data},
                 status=status.HTTP_201_CREATED

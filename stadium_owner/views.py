@@ -8,7 +8,7 @@ from django.core.cache import  cache
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.utils import generate_jwt_response
-from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseProfileView,BaseLogoutView,BaseTokenRefreshView
+from account_app.views import BaseSignupView,BaseLoginView,BaseVerifyOtp,BaseResendOtp,BaseProfileView,BaseLogoutView,BaseTokenRefreshView,BaseProfileEditView
 from account_app.serializers import LoginSerializer
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -19,6 +19,7 @@ from django.db.models import OuterRef, Exists
 from orders.models import *
 from datetime import timedelta, datetime
 from django.db.models import Sum
+from realtime.services.notification import NotificationService
 import logging
 
 
@@ -51,6 +52,10 @@ class StadiumOwnerLogoutView(BaseLogoutView):
 class StadiumOwnerProfile(BaseProfileView):
     permission_classes= [IsAuthenticated,IsStadiumOwner]
     user_type = 'stadium_owner'
+
+class Stadium_OwnerProfileEditView(BaseProfileEditView):
+    permission_classes= [IsAuthenticated,IsStadiumOwner]
+    user_type = 'stadium_owner'
     
 
 class StadiumCreateView(generics.CreateAPIView):
@@ -60,7 +65,14 @@ class StadiumCreateView(generics.CreateAPIView):
 
     def perform_create(self,serializer):
         stadium_owner=  self.request.user.stadiumowner_profile
-        serializer.save(owner=stadium_owner)
+        stadium = serializer.save(owner=stadium_owner)
+
+        admins = User.objects.filter(is_superuser=True)
+        for admin in admins:
+            NotificationService.send_notification_to_user(
+                admin.id,
+                f"🏟️ Stadium '{stadium.name}' has been created by {self.request.user.username} and is pending approval."
+            )
 
 class PendingStadiumListView(generics.ListAPIView):
     serializer_class = StadiumSerializer
@@ -257,41 +269,42 @@ class StadiumOwnerOrderListView(generics.ListAPIView):
     
 
 class StadiumOwnerPaymentHistoryAPIView(APIView):
-    permission_classes = [IsAuthenticated,IsStadiumOwner]
+    permission_classes = [IsAuthenticated, IsStadiumOwner]
 
     def get(self, request):
-        # Get the stadium owner profile of the logged-in user
         try:
             owner_profile = request.user.stadiumowner_profile
         except StadiumOwnerProfile.DoesNotExist:
             return Response({"error": "User is not a stadium owner"}, status=400)
-        
-        # Calculate date ranges
+
         today = timezone.now().date()
         start_of_week = today - timedelta(days=today.weekday())
         start_of_month = today.replace(day=1)
-        
-        # Get all successful payments for this owner's slots
-        successful_orders = Order.objects.filter(
-            slot_bookings__slot__stadium__owner=owner_profile,
-            status='completed'
+
+        # Get filter from query parameter: 'completed' or 'refunded'
+        filter_type = request.query_params.get('filter')
+
+        base_queryset = Order.objects.filter(
+            slot_bookings__slot__stadium__owner=owner_profile
         ).prefetch_related('slot_bookings__slot__stadium').distinct()
-        
-        # Calculate earnings
-        weekly_earnings = successful_orders.filter(
-            created_at__date__gte=start_of_week
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        monthly_earnings = successful_orders.filter(
-            created_at__date__gte=start_of_month
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        # Prepare the payment history data
+
+        if filter_type == "completed":
+            base_queryset = base_queryset.filter(status="completed")
+        elif filter_type == "refunded":
+            base_queryset = base_queryset.filter(status="refunded")
+        else:
+            base_queryset = base_queryset.filter(status__in=["completed", "refunded"])
+
+        # Earnings
+        weekly_earnings = base_queryset.filter(created_at__date__gte=start_of_week).aggregate(total=Sum('amount'))['total'] or 0
+        monthly_earnings = base_queryset.filter(created_at__date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
+        all_time_earnings = base_queryset.aggregate(total=Sum('amount'))['total'] or 0
+
+        # Payment history response
         payment_history = []
-        for order in successful_orders.order_by('-created_at'):
-            # Since one order can have multiple slot bookings, we need to handle them
+        for order in base_queryset.order_by('-created_at'):
             for booking in order.slot_bookings.all():
-                payment_history.append({
+                booking_data = {
                     'id': order.id,
                     'stadium_name': booking.slot.stadium.name,
                     'slot_date': booking.booking_date,
@@ -299,19 +312,26 @@ class StadiumOwnerPaymentHistoryAPIView(APIView):
                     'end_time': booking.slot.end_time,
                     'customer_email': order.user.email,
                     'amount': float(order.amount),
-                    'currency': order.currency,
+                    'currency': order.currency.lower(),
                     'payment_date': order.created_at,
                     'stadium_id': booking.slot.stadium.id,
-                    'slot_id': booking.slot.id
-                })
-        
-        response_data = {
+                    'slot_id': booking.slot.id,
+                }
+
+                # Include refund info only if refunded
+                if order.status == "refunded":
+                    booking_data.update({
+                        'refund_amount': float(order.refund_amount) if order.refund_amount else 0,
+                        'refunded_at': order.refunded_at
+                    })
+
+                payment_history.append(booking_data)
+
+        return Response({
             'payment_history': payment_history,
             'earnings_summary': {
                 'this_week': float(weekly_earnings),
                 'this_month': float(monthly_earnings),
-                'all_time': float(successful_orders.aggregate(total=Sum('amount'))['total'] or 0)
+                'all_time': float(all_time_earnings)
             }
-        }
-        
-        return Response(response_data)
+        })

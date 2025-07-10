@@ -91,9 +91,9 @@ class TrainerCourceSerializer(serializers.ModelSerializer):
         return data
 
 class TrainerProfileSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email', read_only=True)
-    profile_photo = serializers.ImageField(source='user.profile_photo', required=False)
+    username = serializers.CharField(source='user.username',  required=False)
+    email = serializers.EmailField(source='user.email',  required=False)
+    profile_photo = serializers.ImageField(source='user.profile_photo',  required=False)
 
     
     trainer_type = serializers.PrimaryKeyRelatedField(
@@ -136,6 +136,8 @@ class TrainerProfileSerializer(serializers.ModelSerializer):
 
         if user_data:
             user = instance.user
+            user.username = user_data.get('username', user.username)
+            user.email = user_data.get('email', user.email)
             user.profile_photo = user_data.get('profile_photo', user.profile_photo)
             user.save()
 
