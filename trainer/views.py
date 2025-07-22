@@ -460,6 +460,7 @@ class JoinSessionView(APIView):
 
 
 class DashboardStatsAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsTrainer]
     def get(self, request, format=None):
         # Get current date and time
         now = timezone.now()
