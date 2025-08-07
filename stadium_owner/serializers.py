@@ -4,6 +4,7 @@ from django.contrib.gis.geos import Point
 from .models import *
 from orders.models import *
 from datetime import datetime, time
+from .validation import *
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -13,6 +14,12 @@ class StadiumOwnerSignUpSerializer(BaseSignUpSerializer):
 
     class Meta(BaseSignUpSerializer.Meta):
         fields = BaseSignUpSerializer.Meta.fields +['phone_number','document']
+    
+    def validate_phone_number(self, value):
+        return validate_phone_number(value)
+
+    def validate_document(self, value):
+        return validate_document_file(value)
 
     def create(self,validated_data):
         phone_number =  validated_data.pop('phone_number')

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.contrib.auth import authenticate
+from .validation import *
 
 User =  get_user_model()
 MAX_ATTEMPTS = 5
@@ -17,16 +18,15 @@ class BaseSignUpSerializer(serializers.ModelSerializer):
         extra_kwargs={
             'password':{'write_only':True}
         }
+        
+    def validate_username(self, value):
+        return validate_username_format(value)
 
     def validate_email(self,value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already Registered")
-        return value
+        return validate_unique_email(value)
 
     def validate_password(self,value):
-        if len(value) < 8:
-            raise serializers.ValidationError("Password must be at least 8 characters long.")
-        return value
+        return validate_password_strength(value)
 
     def create(self, validated_data):
         validated_data['role'] =  self.role

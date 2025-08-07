@@ -23,7 +23,7 @@ from django.db import transaction
 import logging
 import secrets
 import requests 
-# Create your views here.
+
 User =  get_user_model()
 logger = logging.getLogger(__name__)
 COOLDOWN_TIME = 30
