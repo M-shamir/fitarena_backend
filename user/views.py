@@ -375,9 +375,7 @@ class UserJoinSessionView(APIView):
                 room_id=session.zego_room_id,
                 role='user',  
                 expired_in=3600
-            )
-            
-            
+            )         
             SessionParticipant.objects.get_or_create(
                 session=session,
                 user=user,
